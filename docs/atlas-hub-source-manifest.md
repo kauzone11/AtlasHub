@@ -20,7 +20,7 @@ Foram copiados byte a byte todos os arquivos presentes em:
 O verificador compara o hash de cada arquivo desses namespaces com o checkout
 fonte fixado no SHA acima.
 
-As sete adaptações documentadas são limitadas a adapters de teste ou correções
+As nove adaptações documentadas são limitadas a adapters de teste ou correções
 de lint sem mudança de regra: o teste de administração integrada usa uma
 identidade de ator Hub local, sem criar ou importar o modelo de usuário da
 aplicação maior; os demais removem imports/estado não usados e preservam o
