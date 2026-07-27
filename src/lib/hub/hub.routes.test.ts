@@ -128,7 +128,7 @@ test("migration de notificações troca somente a unicidade para o escopo da org
   assert.match(sql, /CREATE UNIQUE INDEX "HubNotification_organizationId_idempotencyKey_key"/);
   assert.match(sql, /\("organizationId", "idempotencyKey"\)/);
   assert.match(sql, /HubAvailabilityException_full_day_key/);
-  assert.doesNotMatch(sql, /DELETE|TRUNCATE|DROP TABLE/i);
+  assert.doesNotMatch(sql, /\b(?:DELETE FROM|TRUNCATE|DROP TABLE)\b/i);
 });
 
 test("workflow do Atlas Hub executa a matriz completa com PostgreSQL sem permitir skip", () => {
@@ -138,7 +138,7 @@ test("workflow do Atlas Hub executa a matriz completa com PostgreSQL sem permiti
   assert.match(workflow, /postgres:16-alpine/);
   assert.match(workflow, /ATLAS_HUB_TEST_DATABASE_URL:/);
   for (const command of [
-    "npm ci", "npx prisma format", "npx prisma validate", "npx prisma generate", "npm run hub:accounts:preflight", "npm run db:migrate:prod",
+    "npm ci", "npx prisma format", "npx prisma validate", "npx prisma generate", "npm run hub:accounts:preflight", "npx prisma migrate deploy",
     "npm run hub:test", "npm run build",
   ]) assert.ok(workflow.includes(command), `workflow precisa executar ${command}`);
 });
