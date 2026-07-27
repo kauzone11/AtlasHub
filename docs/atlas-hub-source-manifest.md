@@ -4,6 +4,9 @@
 - SHA fonte: `57fa677dc938d5fb1082c317e92a0cfd0b93c3c4`
 - Data da sincronização: 2026-07-27
 - Comando de verificação: `npm run hub:source:verify -- C:/caminho/atlas-impact`
+- O CI verifica a manifestação registrada com `--manifest-only`, pois o
+  repositório-fonte é privado e não há token cross-repository configurado; a
+  comparação SHA/hash completa é executada localmente com o checkout fonte.
 
 ## Arquivos copiados diretamente
 

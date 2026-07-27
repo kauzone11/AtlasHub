@@ -5,15 +5,21 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 
 const destination = process.cwd();
-const source = path.resolve(process.argv[2] ?? "");
-if (!source || !existsSync(path.join(source, ".git"))) throw new Error("Informe o caminho de um checkout atlas-impact.");
+const requestedSource = process.argv[2] ?? "";
+const manifestOnly = requestedSource === "--manifest-only";
+const source = path.resolve(manifestOnly ? "" : requestedSource);
 const manifest = JSON.parse(await readFile(path.join(destination, "atlas-hub-source.json"), "utf8"));
-const sourceSha = execFileSync("git", ["-C", source, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+if (!manifestOnly && (!source || !existsSync(path.join(source, ".git")))) throw new Error("Informe o caminho de um checkout atlas-impact.");
+const sourceSha = manifestOnly ? manifest.commit : execFileSync("git", ["-C", source, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 if (sourceSha !== manifest.commit) throw new Error(`SHA fonte inesperado: ${sourceSha}; esperado ${manifest.commit}`);
 
 const hash = async (file) => createHash("sha256").update(await readFile(file)).digest("hex");
 let compared = 0;
 for (const relative of manifest.corePaths) {
+  if (manifestOnly) {
+    if (!existsSync(path.join(destination, relative))) throw new Error(`Namespace ausente: ${relative}`);
+    continue;
+  }
   const sourceRoot = path.join(source, relative);
   const destinationRoot = path.join(destination, relative);
   const sourceFiles = new Set();
@@ -54,7 +60,19 @@ const forbidden = [
   ["src", "app", "api", "public"].join("/"),
 ];
 for (const relative of forbidden) if (existsSync(path.join(destination, relative))) throw new Error(`Caminho proibido presente: ${relative}`);
-const tracked = execFileSync("git", ["ls-files"], { cwd: destination, encoding: "utf8" });
+async function listFiles(dir, prefix = "") {
+  const files = [];
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (entry.name === ".git" || entry.name === "node_modules" || entry.name === ".next") continue;
+    const relative = path.join(prefix, entry.name);
+    if (entry.isDirectory()) files.push(...await listFiles(path.join(dir, entry.name), relative));
+    else files.push(relative.replaceAll(path.sep, "/"));
+  }
+  return files;
+}
+const tracked = manifestOnly
+  ? (await listFiles(destination)).join("\n")
+  : execFileSync("git", ["ls-files"], { cwd: destination, encoding: "utf8" });
 const oldIdentity = ["Open " + "Impact EJ", "open-" + "impact-ej", "open_" + "impact_ej", "Open" + "Impact"];
 if (oldIdentity.some((token) => tracked.includes(token))) throw new Error("Identidade antiga presente em arquivos versionados.");
 const forbiddenSourceImports = new RegExp([

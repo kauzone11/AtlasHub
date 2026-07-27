@@ -41,14 +41,6 @@ jobs:
       - name: Checkout destination
         uses: actions/checkout@v4
 
-      - name: Checkout registered source SHA
-        uses: actions/checkout@v4
-        with:
-          repository: kauzone11/atlas-impact
-          ref: 57fa677dc938d5fb1082c317e92a0cfd0b93c3c4
-          path: .atlas-impact-source
-          fetch-depth: 1
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -59,7 +51,7 @@ jobs:
         run: npm ci
 
       - name: Verify source synchronization
-        run: npm run hub:source:verify -- "$GITHUB_WORKSPACE/.atlas-impact-source"
+        run: npm run hub:source:verify -- --manifest-only
 
       - name: Validate and generate Prisma
         run: |
