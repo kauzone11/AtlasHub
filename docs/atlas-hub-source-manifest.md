@@ -49,6 +49,8 @@ dependência de runtime.
 - `scripts/verify-atlas-hub-source-sync.mjs`: verificação de hashes e limites.
 - `scripts/preflight-hub-operations.ts`: reconhece a baseline standalone como
   histórico íntegro, além da migration histórica da aplicação integrada.
+- `scripts/preflight-hub-strategy-growth.ts`: aceita a forma final da baseline
+  standalone sem exigir nomes de constraints de migrations incrementais antigas.
 
 ## Caminhos deliberadamente excluídos
 

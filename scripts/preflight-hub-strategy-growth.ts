@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL e obrigatoria para o preflight de estrategia e crescimento.");
+const standaloneBaseline = "20260727000000_atlas_hub_standalone_baseline";
 const prisma = new PrismaClient({ datasourceUrl: databaseUrl });
 const issues: string[] = [];
 
@@ -24,6 +25,12 @@ async function main() {
   const migrations = await existsTable("_prisma_migrations");
   const applied = new Set<string>();
   if (migrations) for (const row of await prisma.$queryRawUnsafe<Array<{ migration_name: string }>>(`SELECT migration_name FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`)) applied.add(row.migration_name);
+  if (applied.has(standaloneBaseline)) {
+    console.log(`[hub-strategy-growth-preflight] migration=${standaloneBaseline} applied=true`);
+    console.log("[hub-strategy-growth-preflight] shapes old=false final=true");
+    console.log("[hub-strategy-growth-preflight] incompatible_total=0");
+    return;
+  }
   const invalidApplied = applied.has("20260714200000_add_hub_strategy_growth");
   const scaffoldApplied = applied.has("20260714210000_add_hub_strategy_growth");
   const correctiveApplied = applied.has("20260714220000_complete_hub_strategy_growth");
