@@ -1,4 +1,7 @@
-// Singleton do Prisma Client para Next.js, evitando múltiplas instâncias no hot reload.
+// ─── Atlas Hub — Prisma Client ────────────────────────────────
+// Singleton do Prisma Client para Next.js (evita múltiplas instâncias no hot reload)
+
+// ─── Atlas Hub · singleton para o runtime Next.js ─────────────
 
 import { PrismaClient } from "@prisma/client";
 

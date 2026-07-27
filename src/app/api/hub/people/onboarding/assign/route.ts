@@ -1,0 +1,2 @@
+import { prisma } from "@/lib/prisma"; import { requireHubPermission } from "@/lib/hub/auth"; import { hubJson, withHubApi } from "@/lib/hub/api"; import { handleAssignOnboarding } from "@/lib/hub/operations-handlers";
+export const POST = withHubApi(async (request) => { const session = await requireHubPermission("people:manage-directorate"); return hubJson(await handleAssignOnboarding(prisma, session, await request.json().catch(() => null)), { status: 201 }); });

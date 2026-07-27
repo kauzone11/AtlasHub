@@ -17,7 +17,7 @@ export function invitationTokenHashesMatch(left: string, right: string) {
 }
 
 export function hubInvitationTtlHours() {
-  const configured = Number(process.env.INVITATION_TTL_HOURS);
+  const configured = Number(process.env.HUB_INVITATION_TTL_HOURS);
   return Number.isInteger(configured) && configured >= 1 && configured <= 24 * 30 ? configured : 72;
 }
 

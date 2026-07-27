@@ -1,6 +1,6 @@
 import type { HubOrganization, Prisma, PrismaClient } from "@prisma/client";
 
-export const HUB_LEGACY_ORGANIZATION_SLUG = "open-impact-ej";
+export const HUB_LEGACY_ORGANIZATION_SLUG = "economik";
 export const DEFAULT_HUB_LOCALE = "pt-BR";
 export const DEFAULT_HUB_CURRENCY = "BRL";
 export const DEFAULT_HUB_TIMEZONE = "America/Sao_Paulo";
@@ -25,13 +25,7 @@ export type HubOrganizationSettingsUpdate = {
 };
 
 export function normalizeHubOrganizationSlug(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 63);
+  return value.replace(/\s+/g, "").toLowerCase();
 }
 
 export function isValidHubOrganizationSlug(value: string) {
@@ -43,8 +37,8 @@ export async function resolveLegacyHubOrganization(client: HubOrganizationClient
     where: { slug: HUB_LEGACY_ORGANIZATION_SLUG },
     update: {},
     create: {
-      name: "Open Impact EJ",
-      hubName: "Open Impact EJ",
+      name: "Economik",
+      hubName: "Economik Hub",
       slug: HUB_LEGACY_ORGANIZATION_SLUG,
       timezone: DEFAULT_HUB_TIMEZONE,
       locale: DEFAULT_HUB_LOCALE,
@@ -67,8 +61,8 @@ export async function updateHubOrganizationSettingsAtomic(
       select: { currency: true },
     });
     if (input.data.currency !== current.currency) {
-      const transactionCount = await tx.hubFinancialEntry.count({
-        where: { organizationId: input.organizationId },
+      const transactionCount = await tx.hubWalletTransaction.count({
+        where: { account: { member: { organizationId: input.organizationId } } },
       });
       if (transactionCount > 0) throw new HubCurrencyLockedError();
     }

@@ -1,0 +1,2 @@
+import { prisma } from "@/lib/prisma"; import { requireHubPermission } from "@/lib/hub/auth"; import { hubJson, withHubApi } from "@/lib/hub/api"; import { handleEvaluateCandidate } from "@/lib/hub/operations-handlers";
+export const POST = withHubApi(async (request, context: { params: Promise<{ id: string }> }) => { const session = await requireHubPermission("people:recruitment-manage"); const { id } = await context.params; return hubJson(await handleEvaluateCandidate(prisma, session, id, await request.json().catch(() => null))); });

@@ -11,7 +11,7 @@ model HubOrganization {
   id                  String              @id @default(cuid())
   name                String
   hubName             String
-  slug                String              @unique
+  slug                String              @unique(map: "EconomikWorkspace_slug_key")
   logoUrl             String?
   timezone            String              @default("America/Sao_Paulo")
   locale              String              @default("pt-BR")
@@ -36,6 +36,7 @@ model HubOrganization {
   members                HubMember[]
   memberInvitations      HubMemberInvitation[]
   projects               HubProject[]
+  financialRule          HubFinancialRule?
   auditLogs              HubAuditLog[]
   notifications          HubNotification[]
   availabilityRules      HubAvailabilityRule[]
@@ -46,8 +47,30 @@ model HubOrganization {
   tasks                  HubTask[]
   calendarEvents         HubCalendarEvent[]
   availabilityPolls      HubAvailabilityPoll[]
-  accountsLastUsed       HubAccount[]               @relation("HubAccountLastOrganization")
-  responsibleMember      HubMember?                 @relation("HubResponsibleMember", fields: [responsibleMemberId], references: [id], onDelete: SetNull)
+  strategyCycles         HubStrategyCycle[]
+  strategicObjectives    HubStrategicObjective[]
+  keyResults             HubKeyResult[]
+  strategicInitiatives   HubStrategicInitiative[]
+  strategicIndicators    HubStrategicIndicator[]
+  indicatorMeasurements  HubIndicatorMeasurement[]
+  strategicRisks         HubStrategicRisk[]
+  strategicReviews       HubStrategicReview[]
+  growthOrganizations    HubGrowthOrganization[]
+  growthContacts         HubGrowthContact[]
+  leads                  HubLead[]
+  pipelineStages         HubPipelineStage[]
+  opportunities          HubOpportunity[]
+  opportunityActivities  HubOpportunityActivity[]
+  proposals              HubProposal[]
+  proposalRevisions      HubProposalRevision[]
+  proposalItems          HubProposalItem[]
+  partnerships           HubPartnership[]
+  mutationKeys           HubStrategicGrowthMutation[]
+  accountsLastUsed       HubAccount[]                 @relation("HubAccountLastOrganization")
+  workspaceLink          WorkspaceHubLink?
+  responsibleMember      HubMember?                   @relation("HubResponsibleMember", fields: [responsibleMemberId], references: [id], onDelete: SetNull)
+
+  @@map("EconomikWorkspace")
 }
 
 enum HubOrganizationType {
@@ -127,10 +150,47 @@ model HubMemberInvitation {
   @@index([existingInvitedMemberId])
 }
 
+model WorkspaceHubLink {
+  id                  String          @id @default(cuid())
+  hubOrganizationId   String          @unique
+  hubOrganization     HubOrganization @relation(fields: [hubOrganizationId], references: [id], onDelete: Cascade)
+  atlasOrganizationId String?
+  createdByUserId     String
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([atlasOrganizationId])
+}
+
+model WorkspaceHubMutation {
+  id             String   @id @default(cuid())
+  scope          String
+  idempotencyKey String
+  requestHash    String
+  resultJson     Json?
+  createdAt      DateTime @default(now())
+
+  @@unique([scope, idempotencyKey])
+}
+
+model WorkspaceHubAudit {
+  id                   String   @id @default(cuid())
+  action               String
+  hubOrganizationId    String
+  organizationName     String
+  responsibleAccountId String?
+  actorUserId          String?
+  safeMetadata         Json?
+  createdAt            DateTime @default(now())
+
+  @@index([hubOrganizationId, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
 model HubDirectorate {
   id             String          @id @default(cuid())
-  organizationId String
-  organization   HubOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String          @map("workspaceId")
+  organization   HubOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade, map: "EconomikDirectorate_workspaceId_fkey")
 
   name        String
   slug        String
@@ -158,16 +218,17 @@ model HubDirectorate {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([organizationId, slug])
-  @@index([organizationId])
+  @@unique([organizationId, slug], map: "EconomikDirectorate_workspaceId_slug_key")
+  @@index([organizationId], map: "EconomikDirectorate_workspaceId_idx")
   @@index([organizationId, archivedAt])
   @@index([directorId])
+  @@map("EconomikDirectorate")
 }
 
 model HubMember {
   id             String          @id @default(cuid())
-  organizationId String
-  organization   HubOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String          @map("workspaceId")
+  organization   HubOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade, map: "EconomikMember_workspaceId_fkey")
 
   email                String
   normalizedEmail      String?
@@ -185,7 +246,7 @@ model HubMember {
   status HubMemberStatus @default(ACTIVE)
 
   directorateId        String?
-  directorate          HubDirectorate?  @relation(fields: [directorateId], references: [id])
+  directorate          HubDirectorate?  @relation(fields: [directorateId], references: [id], map: "EconomikMember_directorateId_fkey")
   directedDirectorates HubDirectorate[] @relation("HubDirectorateDirector")
 
   mustChangePassword Boolean   @default(true)
@@ -194,9 +255,16 @@ model HubMember {
 
   avatarUrl String?
 
+  walletAccount HubWalletAccount?
+
+  responsibleProjects          HubProject[]                     @relation("EconomikResponsibleMember")
   managedProjects              HubProject[]                     @relation("HubProjectManager")
-  createdProjects              HubProject[]                     @relation("HubProjectCreator")
   projectTeams                 HubProjectTeamMember[]
+  createdMetricProjects        HubProject[]                     @relation("EconomikMetricCreatedBy")
+  participations               HubProjectParticipant[]
+  walletRequests               HubWalletRequest[]
+  reviewedRequests             HubWalletRequest[]               @relation("EconomikWalletReviewedBy")
+  createdTransactions          HubWalletTransaction[]           @relation("EconomikWalletTransactionCreatedBy")
   auditLogs                    HubAuditLog[]
   receivedNotifications        HubNotification[]                @relation("HubNotificationRecipient")
   actedNotifications           HubNotification[]                @relation("HubNotificationActor")
@@ -223,12 +291,13 @@ model HubMember {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([organizationId, normalizedEmail])
-  @@index([organizationId])
-  @@index([organizationId, organizationPosition])
-  @@index([organizationId, memberCategory])
-  @@index([directorateId])
+  @@unique([organizationId, normalizedEmail], map: "EconomikMember_workspaceId_normalizedEmail_key")
+  @@index([organizationId], map: "EconomikMember_workspaceId_idx")
+  @@index([organizationId, organizationPosition], map: "EconomikMember_workspaceId_organizationPosition_idx")
+  @@index([organizationId, memberCategory], map: "EconomikMember_workspaceId_memberCategory_idx")
+  @@index([directorateId], map: "EconomikMember_directorateId_idx")
   @@index([accountId])
+  @@map("EconomikMember")
 }
 
 enum HubRole {
@@ -238,6 +307,8 @@ enum HubRole {
   DIRECTOR
   MEMBER
   VIEWER
+
+  @@map("EconomikRole")
 }
 
 enum HubOrganizationPosition {
@@ -257,33 +328,42 @@ enum HubMemberStatus {
   ACTIVE
   DISABLED
   DELETED
+
+  @@map("EconomikStatus")
 }
 
 model HubProject {
   id             String          @id @default(cuid())
-  idempotencyKey String?         @unique
-  organizationId String
-  organization   HubOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  idempotencyKey String?         @unique(map: "EconomikMetricProject_idempotencyKey_key")
+  organizationId String          @map("workspaceId")
+  organization   HubOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade, map: "EconomikMetricProject_workspaceId_fkey")
 
-  title        String
-  client       String?
-  description  String?
-  status       String    @default("DRAFT")
-  priority     String    @default("NORMAL")
-  startDate    DateTime? @db.Date
-  deadline     DateTime? @db.Date
-  progress     Int       @default(0)
-  nextDelivery String?
-  archivedAt   DateTime?
-  version      Int       @default(1)
+  title            String
+  client           String?
+  description      String?
+  grossAmountCents Int       @default(0)
+  competenceDate   DateTime  @default(now())
+  isCollaborative  Boolean   @default(false)
+  status           String    @default("DRAFT")
+  startDate        DateTime? @db.Date
+  deadline         DateTime? @db.Date
+  progress         Int       @default(0)
+  nextDelivery     String?
+  archivedAt       DateTime?
+  version          Int       @default(1)
 
   primaryDirectorateId String?
   primaryDirectorate   HubDirectorate? @relation("HubProjectPrimaryDirectorate", fields: [primaryDirectorateId], references: [id], onDelete: SetNull)
   managerId            String?
   manager              HubMember?      @relation("HubProjectManager", fields: [managerId], references: [id], onDelete: SetNull)
-  createdById          String?
-  createdBy            HubMember?      @relation("HubProjectCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
+  responsibleMemberId String?
+  responsibleMember   HubMember? @relation("EconomikResponsibleMember", fields: [responsibleMemberId], references: [id], map: "EconomikMetricProject_responsibleMemberId_fkey")
+
+  createdById String?
+  createdBy   HubMember? @relation("EconomikMetricCreatedBy", fields: [createdById], references: [id], map: "EconomikMetricProject_createdById_fkey")
+
+  participants     HubProjectParticipant[]
   directorates     HubProjectDirectorate[]
   teamMembers      HubProjectTeamMember[]
   tasks            HubTask[]
@@ -291,16 +371,21 @@ model HubProject {
   calendarEvents   HubCalendarEvent[]
   financialEntries HubFinancialEntry[]
 
-  cancelledAt     DateTime?
-  cancelledReason String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  cancelledAt             DateTime?
+  cancelledReason         String?
+  approvedAt              DateTime?
+  approvedMemberPoolCents Int?
+  financialRuleSnapshot   Json?
 
-  @@index([organizationId])
-  @@index([status])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId], map: "EconomikMetricProject_workspaceId_idx")
+  @@index([status], map: "EconomikMetricProject_status_idx")
   @@index([organizationId, archivedAt, status])
   @@index([primaryDirectorateId])
   @@index([managerId])
+  @@map("EconomikMetricProject")
 }
 
 model HubProjectDirectorate {
@@ -342,24 +427,161 @@ model HubProjectMilestone {
   @@index([projectId, dueAt])
 }
 
+model HubProjectParticipant {
+  id        String     @id @default(cuid())
+  projectId String
+  project   HubProject @relation(fields: [projectId], references: [id], onDelete: Cascade, map: "EconomikMetricProjectParticipant_projectId_fkey")
+
+  memberId String
+  member   HubMember @relation(fields: [memberId], references: [id], onDelete: Cascade, map: "EconomikMetricProjectParticipant_memberId_fkey")
+
+  percentage  Float
+  amountCents Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, memberId], map: "EconomikMetricProjectParticipant_projectId_memberId_key")
+  @@index([memberId], map: "EconomikMetricProjectParticipant_memberId_idx")
+  @@map("EconomikMetricProjectParticipant")
+}
+
+model HubFinancialRule {
+  id             String          @id @default(cuid())
+  organizationId String          @unique(map: "EconomikFinancialRule_workspaceId_key") @map("workspaceId")
+  organization   HubOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade, map: "EconomikFinancialRule_workspaceId_fkey")
+
+  organizationSharePct Float @default(50)
+  atlasSharePct        Float @default(15)
+  memberSharePct       Float @default(35)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("EconomikFinancialRule")
+}
+
+model HubWalletAccount {
+  id       String    @id @default(cuid())
+  memberId String    @unique(map: "EconomikWalletAccount_memberId_key")
+  member   HubMember @relation(fields: [memberId], references: [id], onDelete: Cascade, map: "EconomikWalletAccount_memberId_fkey")
+
+  balanceCents Int @default(0)
+
+  transactions HubWalletTransaction[]
+  requests     HubWalletRequest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("EconomikWalletAccount")
+}
+
+model HubWalletTransaction {
+  id        String           @id @default(cuid())
+  accountId String
+  account   HubWalletAccount @relation(fields: [accountId], references: [id], map: "EconomikWalletTransaction_accountId_fkey")
+
+  type        HubWalletTransactionType
+  amountCents Int
+  description String?
+  status      HubWalletTransactionStatus @default(PENDING)
+
+  sourceType     HubWalletSourceType?
+  sourceId       String?
+  sourceNote     String?
+  idempotencyKey String?              @unique(map: "EconomikWalletTransaction_idempotencyKey_key")
+
+  createdById String?
+  createdBy   HubMember? @relation("EconomikWalletTransactionCreatedBy", fields: [createdById], references: [id], map: "EconomikWalletTransaction_createdById_fkey")
+
+  createdAt DateTime @default(now())
+
+  @@index([accountId], map: "EconomikWalletTransaction_accountId_idx")
+  @@map("EconomikWalletTransaction")
+}
+
+enum HubWalletTransactionType {
+  CREDIT
+  DEBIT
+  ADJUSTMENT
+
+  @@map("EconomikWalletTransactionType")
+}
+
+enum HubWalletTransactionStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+
+  @@map("EconomikWalletTransactionStatus")
+}
+
+enum HubWalletSourceType {
+  PROJECT_PAYOUT
+  PROJECT_REVERSAL
+  MANUAL_ADJUSTMENT
+  TRANSACTION_REVERSAL
+  REQUEST_APPROVAL
+  SYSTEM
+
+  @@map("EconomikWalletSourceType")
+}
+
+model HubWalletRequest {
+  id             String           @id @default(cuid())
+  idempotencyKey String?          @unique(map: "EconomikWalletRequest_idempotencyKey_key")
+  accountId      String
+  account        HubWalletAccount @relation(fields: [accountId], references: [id], map: "EconomikWalletRequest_accountId_fkey")
+
+  memberId String
+  member   HubMember @relation(fields: [memberId], references: [id], map: "EconomikWalletRequest_memberId_fkey")
+
+  amountCents Int
+  reason      String?
+  status      HubWalletRequestStatus @default(PENDING)
+
+  reviewedById String?
+  reviewedBy   HubMember? @relation("EconomikWalletReviewedBy", fields: [reviewedById], references: [id], map: "EconomikWalletRequest_reviewedById_fkey")
+  reviewedAt   DateTime?
+  reviewNote   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([accountId], map: "EconomikWalletRequest_accountId_idx")
+  @@index([status], map: "EconomikWalletRequest_status_idx")
+  @@map("EconomikWalletRequest")
+}
+
+enum HubWalletRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+
+  @@map("EconomikWalletRequestStatus")
+}
+
 model HubAuditLog {
   id             String          @id @default(cuid())
-  organizationId String
-  organization   HubOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String          @map("workspaceId")
+  organization   HubOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade, map: "EconomikAuditLog_workspaceId_fkey")
 
   action   String
   entity   String
   entityId String?
   memberId String?
-  member   HubMember? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  member   HubMember? @relation(fields: [memberId], references: [id], onDelete: SetNull, map: "EconomikAuditLog_memberId_fkey")
 
   metadata Json?
 
   createdAt DateTime @default(now())
 
-  @@index([organizationId])
-  @@index([action])
-  @@index([createdAt])
+  @@index([organizationId], map: "EconomikAuditLog_workspaceId_idx")
+  @@index([action], map: "EconomikAuditLog_action_idx")
+  @@index([createdAt], map: "EconomikAuditLog_createdAt_idx")
+  @@map("EconomikAuditLog")
 }
 
 model HubNotification {
@@ -446,13 +668,6 @@ enum HubMeetingParticipantStatus {
   TENTATIVE
   ATTENDED
   ABSENT
-}
-
-enum HubMeetingInvitationSourceType {
-  CREATOR
-  ORGANIZATION
-  DIRECTORATE
-  DIRECT
 }
 
 model HubMeeting {
@@ -613,19 +828,6 @@ model HubMeetingParticipant {
 
   @@unique([meetingId, memberId])
   @@index([memberId, responseStatus])
-}
-
-model HubMeetingParticipantSource {
-  id            String                         @id @default(cuid())
-  meetingId     String
-  memberId      String
-  sourceType    HubMeetingInvitationSourceType
-  directorateId String?
-  createdAt     DateTime                       @default(now())
-
-  @@unique([meetingId, memberId, sourceType, directorateId])
-  @@index([meetingId, memberId])
-  @@index([directorateId])
 }
 
 model HubMeetingAgendaItem {
@@ -975,8 +1177,6 @@ model HubFinancialEntry {
   cancellationReason String?
   idempotencyKey     String
   requestHash        String
-  supportingMetadata Json?
-  version            Int                        @default(1)
   createdAt          DateTime                   @default(now())
   updatedAt          DateTime                   @updatedAt
 
@@ -1119,4 +1319,1039 @@ model HubReimbursementItem {
   updatedAt        DateTime @updatedAt
 
   @@index([organizationId, requestId])
+}
+
+enum HubProfileVisibility {
+  PRIVATE
+  ORGANIZATION
+}
+
+enum HubMemberLifecycleEventType {
+  JOINED
+  ROLE_CHANGED
+  DIRECTORATE_CHANGED
+  LEAVE_STARTED
+  OFFBOARDED
+  REACTIVATED
+}
+
+enum HubDevelopmentGoalStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum HubPeopleCycleStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
+
+enum HubFeedbackVisibility {
+  PRIVATE_TO_RECIPIENT
+  MANAGER_AND_RECIPIENT
+  PEOPLE_ADMIN
+}
+
+enum HubEvaluationType {
+  SELF
+  MANAGER
+  PEER
+}
+
+enum HubEvaluationStatus {
+  PENDING
+  SUBMITTED
+}
+
+enum HubRecognitionVisibility {
+  PRIVATE
+  ORGANIZATION
+}
+
+enum HubRecruitmentProcessStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  ARCHIVED
+}
+
+enum HubCandidateStatus {
+  ACTIVE
+  APPROVED
+  REJECTED
+  WITHDRAWN
+  HIRED
+}
+
+model HubMemberProfile {
+  id                    String               @id @default(cuid())
+  organizationId        String
+  memberId              String               @unique
+  phone                 String?
+  birthDate             DateTime?            @db.Date
+  joinedAt              DateTime?            @db.Date
+  leftAt                DateTime?            @db.Date
+  employmentType        String?
+  university            String?
+  course                String?
+  semester              String?
+  linkedinUrl           String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  bio                   String?
+  visibility            HubProfileVisibility @default(PRIVATE)
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  @@index([organizationId])
+}
+
+model HubMemberLifecycleEvent {
+  id             String                      @id @default(cuid())
+  organizationId String
+  memberId       String
+  type           HubMemberLifecycleEventType
+  reason         String?
+  metadata       Json?
+  recordedById   String
+  createdAt      DateTime                    @default(now())
+
+  @@index([organizationId, memberId, createdAt])
+}
+
+model HubOnboardingTemplate {
+  id             String   @id @default(cuid())
+  organizationId String
+  directorateId  String?
+  name           String
+  isActive       Boolean  @default(true)
+  createdById    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId, isActive])
+}
+
+model HubOnboardingTemplateItem {
+  id             String   @id @default(cuid())
+  organizationId String
+  templateId     String
+  title          String
+  description    String?
+  order          Int
+  dueAfterDays   Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([templateId, order])
+  @@index([organizationId])
+}
+
+model HubOnboardingAssignment {
+  id             String    @id @default(cuid())
+  organizationId String
+  templateId     String
+  memberId       String
+  assignedById   String
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([organizationId, memberId, completedAt])
+}
+
+model HubOnboardingAssignmentItem {
+  id             String    @id @default(cuid())
+  organizationId String
+  assignmentId   String
+  templateItemId String
+  ownerMemberId  String
+  title          String
+  description    String?
+  dueDate        DateTime? @db.Date
+  completedAt    DateTime?
+  completedById  String?
+  version        Int       @default(1)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([assignmentId, templateItemId])
+  @@index([organizationId, ownerMemberId, completedAt])
+}
+
+model HubCompetency {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  normalizedName String
+  description    String?
+  category       String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId, normalizedName])
+}
+
+model HubMemberCompetency {
+  id             String   @id @default(cuid())
+  organizationId String
+  memberId       String
+  competencyId   String
+  level          Int
+  assessedAt     DateTime @default(now())
+  assessedById   String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([memberId, competencyId])
+  @@index([organizationId, memberId])
+}
+
+model HubDevelopmentPlan {
+  id             String   @id @default(cuid())
+  organizationId String
+  memberId       String
+  title          String
+  description    String?
+  isActive       Boolean  @default(true)
+  createdById    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId, memberId, isActive])
+}
+
+model HubDevelopmentGoal {
+  id              String                   @id @default(cuid())
+  organizationId  String
+  planId          String
+  ownerMemberId   String
+  managerMemberId String?
+  title           String
+  description     String?
+  status          HubDevelopmentGoalStatus @default(DRAFT)
+  dueDate         DateTime?                @db.Date
+  progress        Int                      @default(0)
+  version         Int                      @default(1)
+  completedAt     DateTime?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  @@index([organizationId, ownerMemberId, status])
+}
+
+model HubPeopleCycle {
+  id             String               @id @default(cuid())
+  organizationId String
+  name           String
+  status         HubPeopleCycleStatus @default(DRAFT)
+  startsAt       DateTime?            @db.Date
+  endsAt         DateTime?            @db.Date
+  createdById    String
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([organizationId, status])
+}
+
+model HubFeedback {
+  id                String                @id @default(cuid())
+  organizationId    String
+  cycleId           String?
+  authorMemberId    String
+  recipientMemberId String
+  body              String
+  visibility        HubFeedbackVisibility
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@index([organizationId, recipientMemberId, createdAt])
+}
+
+model HubEvaluation {
+  id                String              @id @default(cuid())
+  organizationId    String
+  cycleId           String
+  evaluatorMemberId String
+  evaluatedMemberId String
+  type              HubEvaluationType
+  status            HubEvaluationStatus @default(PENDING)
+  submittedAt       DateTime?
+  version           Int                 @default(1)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@unique([cycleId, evaluatorMemberId, evaluatedMemberId, type])
+  @@index([organizationId, evaluatorMemberId, status])
+}
+
+model HubEvaluationCriterion {
+  id             String   @id @default(cuid())
+  organizationId String
+  cycleId        String
+  title          String
+  description    String?
+  scaleMin       Int      @default(1)
+  scaleMax       Int      @default(5)
+  order          Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([cycleId, order])
+  @@index([organizationId])
+}
+
+model HubEvaluationResponse {
+  id             String   @id @default(cuid())
+  organizationId String
+  evaluationId   String
+  criterionId    String
+  score          Int
+  comment        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([evaluationId, criterionId])
+  @@index([organizationId])
+}
+
+model HubRecognition {
+  id                String                   @id @default(cuid())
+  organizationId    String
+  recipientMemberId String
+  givenById         String
+  title             String
+  description       String
+  recognizedAt      DateTime                 @default(now())
+  visibility        HubRecognitionVisibility @default(ORGANIZATION)
+  createdAt         DateTime                 @default(now())
+
+  @@index([organizationId, recipientMemberId, recognizedAt])
+}
+
+model HubParticipationRecord {
+  id             String   @id @default(cuid())
+  organizationId String
+  memberId       String
+  date           DateTime @db.Date
+  type           String
+  source         String
+  recordedById   String
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, memberId, date])
+}
+
+model HubRecruitmentProcess {
+  id             String                      @id @default(cuid())
+  organizationId String
+  title          String
+  description    String?
+  status         HubRecruitmentProcessStatus @default(DRAFT)
+  createdById    String
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+
+  @@index([organizationId, status])
+}
+
+model HubRecruitmentStage {
+  id             String   @id @default(cuid())
+  organizationId String
+  processId      String
+  name           String
+  order          Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([processId, order])
+  @@index([organizationId])
+}
+
+model HubCandidate {
+  id              String             @id @default(cuid())
+  organizationId  String
+  processId       String
+  currentStageId  String?
+  name            String
+  email           String
+  normalizedEmail String
+  phone           String?
+  notes           String?
+  status          HubCandidateStatus @default(ACTIVE)
+  rejectionReason String?
+  hiredMemberId   String?
+  version         Int                @default(1)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@unique([processId, normalizedEmail])
+  @@index([organizationId, status])
+}
+
+model HubCandidateStageEvent {
+  id             String   @id @default(cuid())
+  organizationId String
+  candidateId    String
+  fromStageId    String?
+  toStageId      String
+  movedById      String
+  reason         String?
+  idempotencyKey String
+  requestHash    String
+  createdAt      DateTime @default(now())
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([candidateId, createdAt])
+}
+
+model HubCandidateEvaluation {
+  id             String   @id @default(cuid())
+  organizationId String
+  candidateId    String
+  evaluatorId    String
+  score          Int
+  comments       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([candidateId, evaluatorId])
+  @@index([organizationId])
+}
+
+enum HubStrategyCycleStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
+
+enum HubStrategicObjectiveStatus {
+  DRAFT
+  ACTIVE
+  AT_RISK
+  COMPLETED
+  CANCELLED
+}
+
+enum HubStrategicPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum HubKeyResultDirection {
+  INCREASE
+  DECREASE
+  MAINTAIN
+}
+
+enum HubKeyResultStatus {
+  ACTIVE
+  AT_RISK
+  COMPLETED
+  CANCELLED
+}
+
+enum HubStrategicInitiativeStatus {
+  PLANNED
+  ACTIVE
+  BLOCKED
+  COMPLETED
+  CANCELLED
+}
+
+enum HubIndicatorFrequency {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+  MANUAL
+}
+
+enum HubStrategicRiskStatus {
+  OPEN
+  MONITORING
+  MITIGATED
+  ACCEPTED
+  CLOSED
+}
+
+enum HubStrategicReviewStatus {
+  DRAFT
+  CLOSED
+}
+
+enum HubGrowthOrganizationStatus {
+  PROSPECT
+  CUSTOMER
+  PARTNER
+  INACTIVE
+}
+
+enum HubLeadSource {
+  REFERRAL
+  SOCIAL
+  EVENT
+  OUTBOUND
+  INBOUND
+  PARTNERSHIP
+  OTHER
+}
+
+enum HubLeadStatus {
+  NEW
+  QUALIFYING
+  QUALIFIED
+  DISQUALIFIED
+  CONVERTED
+}
+
+enum HubOpportunityStatus {
+  OPEN
+  WON
+  LOST
+  CANCELLED
+}
+
+enum HubOpportunityActivityType {
+  NOTE
+  CALL
+  MEETING
+  EMAIL
+  TASK
+  FOLLOW_UP
+}
+
+enum HubProposalStatus {
+  DRAFT
+  INTERNAL_REVIEW
+  APPROVED
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+enum HubPartnershipStatus {
+  PROPOSED
+  ACTIVE
+  PAUSED
+  ENDED
+  CANCELLED
+}
+
+model HubStrategyCycle {
+  id             String                  @id @default(cuid())
+  organizationId String
+  organization   HubOrganization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  startsAt       DateTime                @db.Date
+  endsAt         DateTime                @db.Date
+  status         HubStrategyCycleStatus  @default(DRAFT)
+  allowOverlap   Boolean                 @default(false)
+  version        Int                     @default(1)
+  createdById    String
+  closedAt       DateTime?
+  archivedAt     DateTime?
+  objectives     HubStrategicObjective[]
+  risks          HubStrategicRisk[]
+  reviews        HubStrategicReview[]
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId, status, startsAt, endsAt])
+}
+
+model HubStrategicObjective {
+  id             String                      @id @default(cuid())
+  organizationId String
+  organization   HubOrganization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  cycleId        String
+  cycle          HubStrategyCycle            @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  directorateId  String?
+  title          String
+  description    String?
+  ownerMemberId  String?
+  status         HubStrategicObjectiveStatus @default(DRAFT)
+  priority       HubStrategicPriority        @default(MEDIUM)
+  progress       Int                         @default(0)
+  startsAt       DateTime?                   @db.Date
+  dueAt          DateTime?                   @db.Date
+  completedAt    DateTime?
+  version        Int                         @default(1)
+  keyResults     HubKeyResult[]
+  initiatives    HubStrategicInitiative[]
+  risks          HubStrategicRisk[]
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+
+  @@index([organizationId, cycleId, directorateId])
+  @@index([organizationId, ownerMemberId, status])
+}
+
+model HubKeyResult {
+  id             String                @id @default(cuid())
+  organizationId String
+  organization   HubOrganization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  objectiveId    String
+  objective      HubStrategicObjective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  title          String
+  ownerMemberId  String?
+  unit           String
+  startValue     Decimal               @db.Decimal(24, 6)
+  targetValue    Decimal               @db.Decimal(24, 6)
+  currentValue   Decimal               @db.Decimal(24, 6)
+  direction      HubKeyResultDirection
+  weight         Decimal               @db.Decimal(7, 4)
+  status         HubKeyResultStatus    @default(ACTIVE)
+  version        Int                   @default(1)
+  histories      HubKeyResultHistory[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@index([organizationId, objectiveId])
+  @@index([organizationId, ownerMemberId, status])
+}
+
+model HubKeyResultHistory {
+  id             String       @id @default(cuid())
+  organizationId String
+  keyResultId    String
+  keyResult      HubKeyResult @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+  previousValue  Decimal      @db.Decimal(24, 6)
+  value          Decimal      @db.Decimal(24, 6)
+  progress       Decimal      @db.Decimal(7, 4)
+  notes          String?
+  recordedById   String
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, keyResultId, createdAt])
+}
+
+model HubStrategicInitiative {
+  id             String                       @id @default(cuid())
+  organizationId String
+  organization   HubOrganization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  objectiveId    String?
+  objective      HubStrategicObjective?       @relation(fields: [objectiveId], references: [id], onDelete: SetNull)
+  boardId        String?
+  projectId      String?
+  opportunityId  String?
+  title          String
+  description    String?
+  ownerMemberId  String?
+  directorateId  String?
+  status         HubStrategicInitiativeStatus @default(PLANNED)
+  startsAt       DateTime?                    @db.Date
+  dueAt          DateTime?                    @db.Date
+  progress       Int                          @default(0)
+  version        Int                          @default(1)
+  createdAt      DateTime                     @default(now())
+  updatedAt      DateTime                     @updatedAt
+
+  @@index([organizationId, directorateId, status])
+  @@index([objectiveId])
+}
+
+model HubStrategicIndicator {
+  id             String                    @id @default(cuid())
+  organizationId String
+  organization   HubOrganization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  unit           String
+  direction      HubKeyResultDirection
+  frequency      HubIndicatorFrequency
+  ownerMemberId  String?
+  directorateId  String?
+  targetValue    Decimal                   @db.Decimal(24, 6)
+  isActive       Boolean                   @default(true)
+  version        Int                       @default(1)
+  measurements   HubIndicatorMeasurement[]
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId, directorateId, isActive])
+}
+
+model HubIndicatorMeasurement {
+  id             String                @id @default(cuid())
+  organizationId String
+  organization   HubOrganization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  indicatorId    String
+  indicator      HubStrategicIndicator @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
+  measuredAt     DateTime
+  periodKey      String
+  value          Decimal               @db.Decimal(24, 6)
+  notes          String?
+  recordedById   String
+  idempotencyKey String
+  requestHash    String
+  createdAt      DateTime              @default(now())
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, indicatorId, measuredAt(sort: Desc)])
+}
+
+model HubStrategicRisk {
+  id             String                    @id @default(cuid())
+  organizationId String
+  organization   HubOrganization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  cycleId        String
+  cycle          HubStrategyCycle          @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  objectiveId    String?
+  objective      HubStrategicObjective?    @relation(fields: [objectiveId], references: [id], onDelete: SetNull)
+  directorateId  String?
+  title          String
+  description    String?
+  category       String
+  probability    Int
+  impact         Int
+  score          Int
+  status         HubStrategicRiskStatus    @default(OPEN)
+  ownerMemberId  String?
+  mitigation     String?
+  reviewDate     DateTime?                 @db.Date
+  version        Int                       @default(1)
+  histories      HubStrategicRiskHistory[]
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  @@index([organizationId, cycleId, directorateId, status])
+}
+
+model HubStrategicRiskHistory {
+  id             String                 @id @default(cuid())
+  organizationId String
+  riskId         String
+  risk           HubStrategicRisk       @relation(fields: [riskId], references: [id], onDelete: Cascade)
+  status         HubStrategicRiskStatus
+  probability    Int
+  impact         Int
+  score          Int
+  mitigation     String?
+  changedById    String
+  createdAt      DateTime               @default(now())
+
+  @@index([organizationId, riskId, createdAt])
+}
+
+model HubStrategicReview {
+  id                   String                   @id @default(cuid())
+  organizationId       String
+  organization         HubOrganization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  cycleId              String
+  cycle                HubStrategyCycle         @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  meetingId            String?
+  reviewDate           DateTime                 @db.Date
+  participantMemberIds String[]
+  summary              String?
+  objectiveSnapshots   Json?
+  indicatorSnapshots   Json?
+  riskSummary          Json?
+  decisions            Json?
+  nextActions          Json?
+  status               HubStrategicReviewStatus @default(DRAFT)
+  version              Int                      @default(1)
+  closedAt             DateTime?
+  closedById           String?
+  createdById          String
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+
+  @@index([organizationId, cycleId, reviewDate])
+  @@index([meetingId])
+}
+
+model HubGrowthOrganization {
+  id             String                      @id @default(cuid())
+  organizationId String
+  organization   HubOrganization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  normalizedName String
+  document       String?
+  website        String?
+  industry       String?
+  city           String?
+  state          String?
+  country        String                      @default("BR")
+  notes          String?
+  status         HubGrowthOrganizationStatus @default(PROSPECT)
+  contacts       HubGrowthContact[]
+  leads          HubLead[]
+  opportunities  HubOpportunity[]
+  partnerships   HubPartnership[]
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+
+  @@unique([organizationId, normalizedName])
+  @@index([organizationId, status])
+}
+
+model HubGrowthContact {
+  id                   String                @id @default(cuid())
+  organizationId       String
+  organization         HubOrganization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  growthOrganizationId String
+  growthOrganization   HubGrowthOrganization @relation(fields: [growthOrganizationId], references: [id], onDelete: Cascade)
+  name                 String
+  role                 String?
+  email                String?
+  normalizedEmail      String?
+  phone                String?
+  linkedinUrl          String?
+  isPrimary            Boolean               @default(false)
+  isActive             Boolean               @default(true)
+  notes                String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@unique([growthOrganizationId, normalizedEmail])
+  @@index([organizationId, growthOrganizationId, isActive])
+}
+
+model HubLead {
+  id                     String                 @id @default(cuid())
+  organizationId         String
+  organization           HubOrganization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  growthOrganizationId   String?
+  growthOrganization     HubGrowthOrganization? @relation(fields: [growthOrganizationId], references: [id], onDelete: SetNull)
+  title                  String
+  source                 HubLeadSource
+  status                 HubLeadStatus          @default(NEW)
+  ownerMemberId          String?
+  directorateId          String?
+  notes                  String?
+  disqualificationReason String?
+  idempotencyKey         String
+  requestHash            String
+  convertedOpportunityId String?
+  convertedAt            DateTime?
+  version                Int                    @default(1)
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, status, directorateId])
+}
+
+model HubPipelineStage {
+  id             String           @id @default(cuid())
+  organizationId String
+  organization   HubOrganization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  order          Int
+  probability    Int
+  isWon          Boolean          @default(false)
+  isLost         Boolean          @default(false)
+  isActive       Boolean          @default(true)
+  version        Int              @default(1)
+  opportunities  HubOpportunity[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([organizationId, order])
+  @@unique([organizationId, name])
+  @@index([organizationId, isActive])
+}
+
+model HubOpportunity {
+  id                        String                       @id @default(cuid())
+  organizationId            String
+  organization              HubOrganization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  growthOrganizationId      String
+  growthOrganization        HubGrowthOrganization        @relation(fields: [growthOrganizationId], references: [id], onDelete: Restrict)
+  primaryContactId          String?
+  title                     String
+  description               String?
+  ownerMemberId             String?
+  directorateId             String?
+  stageId                   String
+  stage                     HubPipelineStage             @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  status                    HubOpportunityStatus         @default(OPEN)
+  estimatedValueCents       Int                          @default(0)
+  currency                  String
+  expectedCloseDate         DateTime?                    @db.Date
+  source                    HubLeadSource
+  probability               Int
+  probabilityOverride       Int?
+  probabilityOverrideReason String?
+  nextAction                String?
+  nextActionAt              DateTime?
+  lossReason                String?
+  cancellationReason        String?
+  wonAt                     DateTime?
+  lostAt                    DateTime?
+  cancelledAt               DateTime?
+  version                   Int                          @default(1)
+  sourceLeadId              String?
+  projectId                 String?
+  projectCreationKey        String?
+  activities                HubOpportunityActivity[]
+  proposals                 HubProposal[]
+  stageHistory              HubOpportunityStageHistory[]
+  createdAt                 DateTime                     @default(now())
+  updatedAt                 DateTime                     @updatedAt
+
+  @@unique([organizationId, sourceLeadId])
+  @@unique([organizationId, projectCreationKey])
+  @@index([organizationId, stageId, status])
+  @@index([organizationId, directorateId, ownerMemberId])
+}
+
+model HubOpportunityStageHistory {
+  id             String               @id @default(cuid())
+  organizationId String
+  opportunityId  String
+  opportunity    HubOpportunity       @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  fromStageId    String?
+  toStageId      String
+  fromStatus     HubOpportunityStatus
+  toStatus       HubOpportunityStatus
+  reason         String?
+  changedById    String
+  createdAt      DateTime             @default(now())
+
+  @@index([organizationId, opportunityId, createdAt])
+}
+
+model HubOpportunityActivity {
+  id                 String                     @id @default(cuid())
+  organizationId     String
+  organization       HubOrganization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunityId      String
+  opportunity        HubOpportunity             @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  type               HubOpportunityActivityType
+  title              String
+  description        String?
+  occurredAt         DateTime
+  nextActionAt       DateTime?
+  meetingId          String?
+  taskId             String?
+  replacesActivityId String?
+  cancelledAt        DateTime?
+  cancellationReason String?
+  createdById        String
+  createdAt          DateTime                   @default(now())
+
+  @@index([organizationId, opportunityId, occurredAt(sort: Desc)])
+}
+
+model HubProposal {
+  id                 String                @id @default(cuid())
+  organizationId     String
+  organization       HubOrganization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunityId      String
+  opportunity        HubOpportunity        @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
+  title              String
+  summary            String?
+  validUntil         DateTime?             @db.Date
+  currency           String
+  subtotalCents      Int                   @default(0)
+  discountCents      Int                   @default(0)
+  totalCents         Int                   @default(0)
+  status             HubProposalStatus     @default(DRAFT)
+  createdById        String
+  approvedById       String?
+  sentAt             DateTime?
+  acceptedAt         DateTime?
+  rejectedAt         DateTime?
+  rejectionReason    String?
+  expiredAt          DateTime?
+  cancelledAt        DateTime?
+  cancellationReason String?
+  version            Int                   @default(1)
+  activeRevisionId   String?
+  projectId          String?
+  projectCreationKey String?
+  revisions          HubProposalRevision[]
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  @@unique([organizationId, projectCreationKey])
+  @@index([organizationId, opportunityId, status])
+}
+
+model HubProposalRevision {
+  id              String            @id @default(cuid())
+  organizationId  String
+  organization    HubOrganization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  proposalId      String
+  proposal        HubProposal       @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  revisionNumber  Int
+  scope           String
+  deliverables    String
+  timeline        String
+  commercialTerms String
+  isLocked        Boolean           @default(false)
+  createdById     String
+  items           HubProposalItem[]
+  createdAt       DateTime          @default(now())
+
+  @@unique([proposalId, revisionNumber])
+  @@index([organizationId, proposalId])
+}
+
+model HubProposalItem {
+  id               String              @id @default(cuid())
+  organizationId   String
+  organization     HubOrganization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  revisionId       String
+  revision         HubProposalRevision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  description      String
+  quantity         Decimal             @db.Decimal(18, 4)
+  unitAmountCents  Int
+  totalAmountCents Int
+  order            Int
+
+  @@unique([revisionId, order])
+  @@index([organizationId, revisionId])
+}
+
+model HubPartnership {
+  id                   String                @id @default(cuid())
+  organizationId       String
+  organization         HubOrganization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  growthOrganizationId String
+  growthOrganization   HubGrowthOrganization @relation(fields: [growthOrganizationId], references: [id], onDelete: Restrict)
+  title                String
+  type                 String
+  ownerMemberId        String?
+  status               HubPartnershipStatus  @default(PROPOSED)
+  startsAt             DateTime?             @db.Date
+  endsAt               DateTime?             @db.Date
+  goals                String?
+  notes                String?
+  opportunityId        String?
+  initiativeId         String?
+  version              Int                   @default(1)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@index([organizationId, status, ownerMemberId])
+}
+
+model HubStrategicGrowthMutation {
+  id             String          @id @default(cuid())
+  organizationId String
+  organization   HubOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  scope          String
+  idempotencyKey String
+  requestHash    String
+  entityType     String
+  entityId       String
+  createdAt      DateTime        @default(now())
+
+  @@unique([organizationId, scope, idempotencyKey])
+  @@index([organizationId, entityType, entityId])
 }

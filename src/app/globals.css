@@ -1,16 +1,138 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@theme inline {
-  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-dm-mono), ui-monospace, monospace;
+@layer base {
+  :root {
+    --color-background: #ffffff;
+    --color-surface: #ffffff;
+    --color-surface-elevated: #f9fafb;
+    --color-surface-muted: #f3f4f6;
+    --color-text-primary: #111827;
+    --color-text-secondary: #374151;
+    --color-text-muted: #6b7280;
+    --color-text-subtle: #9ca3af;
+    --color-accent: #111827;
+    --color-accent-muted: #374151;
+    --color-accent-soft: #e5e7eb;
+    --color-accent-contrast: #ffffff;
+    --color-warning: #D97706;
+    --color-warning-light: #FBBF24;
+    --color-danger: #DC2626;
+    --color-danger-light: #FCA5A5;
+    --color-border: #e5e7eb;
+    --color-border-soft: #f1f5f9;
+  }
+
+  html {
+    font-family: "Inter", system-ui, sans-serif;
+    color: var(--color-text-primary);
+    background-color: var(--color-background);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html:has([data-atlas-landing]) {
+    scrollbar-width: none;
+  }
+
+  html:has([data-atlas-landing])::-webkit-scrollbar {
+    display: none;
+  }
+
+  body {
+    min-height: 100vh;
+    background-color: var(--color-background);
+  }
+
+  input,
+  select,
+  textarea {
+    @apply border-border bg-white text-text-primary placeholder:text-zinc-500;
+  }
+
+  option {
+    @apply bg-surface text-text-primary;
+  }
 }
+@layer components {
+  /* Cards do dashboard */
+  .card-metric {
+    @apply rounded-lg border border-border bg-white p-6 text-text-primary shadow-sm;
+  }
 
-:root { color-scheme: light; --background: #fafafa; --foreground: #09090b; }
-* { box-sizing: border-box; }
-html { background: var(--background); }
-body { min-height: 100vh; margin: 0; background: var(--background); color: var(--foreground); font-family: var(--font-manrope), sans-serif; }
-button, input, textarea, select { font: inherit; }
-button, a { -webkit-tap-highlight-color: transparent; }
-:focus-visible { outline: 2px solid #18181b; outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; } }
+  .card-metric-label {
+    @apply text-sm font-medium text-text-secondary;
+  }
+
+  .card-metric-value {
+    @apply text-2xl font-semibold text-text-primary mt-1;
+  }
+
+  /* Status badges */
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  .badge-valid {
+    @apply border border-zinc-200 bg-zinc-100 text-zinc-900;
+  }
+
+  .badge-warning {
+    @apply bg-warning/10 text-warning;
+  }
+
+  .badge-danger {
+    @apply bg-danger/10 text-danger;
+  }
+
+  .badge-neutral {
+    @apply border border-zinc-200 bg-zinc-100 text-zinc-900;
+  }
+
+  /* Botões */
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-contrast hover:bg-accent-muted transition-colors;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-lg border border-border bg-white px-4 py-2 text-sm font-medium text-text-secondary hover:bg-surface-elevated transition-colors;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white hover:bg-zinc-900 transition-colors;
+  }
+
+  /* Inputs */
+  .input-field {
+    @apply w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-text-primary placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500/20 focus:border-zinc-500;
+  }
+
+  .label-field {
+    @apply block text-sm font-medium text-text-primary mb-1.5;
+  }
+
+  /* Separação visual: dados observados vs estimativas */
+  .section-observed {
+    @apply border-l-4 border-zinc-400 pl-4;
+  }
+
+  .section-estimated {
+    @apply border-l-4 border-warning pl-4;
+  }
+
+  .section-expanded {
+    @apply border-l-4 border-dashed border-zinc-300 pl-4;
+  }
+}
+@keyframes headlineFade {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

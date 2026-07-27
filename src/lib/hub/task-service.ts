@@ -13,11 +13,10 @@ function assertMutable(actor: Actor) {
   if (actor.role === "VIEWER") throw new HubApiError("Ação não permitida.", 403);
 }
 
-async function assertRelations(tx: Prisma.TransactionClient, actor: Actor, input: { directorateId?: string | null; projectId?: string | null; assigneeIds?: string[] }) {
+async function assertRelations(tx: Prisma.TransactionClient, actor: Actor, input: { directorateId?: string | null; projectId?: string | null; assigneeId?: string | null }) {
   if (input.directorateId && !(await tx.hubDirectorate.count({ where: { id: input.directorateId, organizationId: actor.organizationId, archivedAt: null } }))) throw new HubApiError("Diretoria não encontrada.", 404);
   if (input.projectId && !(await tx.hubProject.count({ where: { id: input.projectId, organizationId: actor.organizationId, archivedAt: null } }))) throw new HubApiError("Projeto não encontrado.", 404);
-  const assigneeIds = [...new Set(input.assigneeIds || [])];
-  if (assigneeIds.length && (await tx.hubMember.count({ where: { id: { in: assigneeIds }, organizationId: actor.organizationId, status: "ACTIVE" } })) !== assigneeIds.length) throw new HubApiError("Responsável não encontrado.", 404);
+  if (input.assigneeId && !(await tx.hubMember.count({ where: { id: input.assigneeId, organizationId: actor.organizationId, status: "ACTIVE" } }))) throw new HubApiError("Responsável não encontrado.", 404);
 }
 
 async function ensureCoreBoard(tx: Prisma.TransactionClient, actor: Actor, directorateId: string | null) {
@@ -63,21 +62,20 @@ export async function getCoreTask(client: PrismaClient, actor: Actor, id: string
   return { ...task, responsible: task.assignees[0]?.member || null, capabilities: { canEdit: actor.role !== "VIEWER" && (hasHubPermission(actor.role, "tasks:manage-all") || task.assignees.some((item) => item.member.id === actor.memberId) || actor.directorateId === task.directorate?.id) } };
 }
 
-export type CoreTaskInput = { title: string; description?: string | null; responsibleMemberId?: string | null; assigneeIds?: string[]; directorateId?: string | null; projectId?: string | null; deadline?: Date | null; priority?: "LOW" | "NORMAL" | "HIGH" | "URGENT"; status?: typeof STATUSES[number] };
+export type CoreTaskInput = { title: string; description?: string | null; responsibleMemberId?: string | null; directorateId?: string | null; projectId?: string | null; deadline?: Date | null; priority?: "LOW" | "NORMAL" | "HIGH" | "URGENT"; status?: typeof STATUSES[number] };
 
 export async function createCoreTask(client: PrismaClient, actor: Actor, input: CoreTaskInput, idempotencyKey: string = crypto.randomUUID()) {
   assertMutable(actor);
   if (input.title.trim().length < 2) throw new HubApiError("Informe um título válido.", 400);
   return hubCoreTransaction(client, async (tx) => {
-    const assigneeIds = [...new Set(input.assigneeIds || (input.responsibleMemberId ? [input.responsibleMemberId] : []))];
-    await assertRelations(tx, actor, { directorateId: input.directorateId, projectId: input.projectId, assigneeIds });
+    await assertRelations(tx, actor, { directorateId: input.directorateId, projectId: input.projectId, assigneeId: input.responsibleMemberId });
     const existing = await tx.hubTask.findUnique({ where: { organizationId_idempotencyKey: { organizationId: actor.organizationId, idempotencyKey } } });
     if (existing) return getCoreTask(tx as unknown as PrismaClient, actor, existing.id);
     const board = await ensureCoreBoard(tx, actor, input.directorateId || null);
     const status = input.status || "TODO";
     const column = board.columns[Math.max(0, STATUSES.indexOf(status))] || board.columns[0];
     const position = (await tx.hubTask.aggregate({ where: { columnId: column.id }, _max: { position: true } }))._max.position ?? -1;
-    const task = await tx.hubTask.create({ data: { organizationId: actor.organizationId, boardId: board.id, columnId: column.id, directorateId: input.directorateId || null, projectId: input.projectId || null, title: input.title.trim(), description: input.description?.trim() || null, priority: input.priority || "NORMAL", status, dueAt: input.deadline || null, position: position + 1, createdById: actor.memberId, completedAt: status === "DONE" ? new Date() : null, idempotencyKey, assignees: assigneeIds.length ? { create: assigneeIds.map((memberId) => ({ memberId })) } : undefined } });
+    const task = await tx.hubTask.create({ data: { organizationId: actor.organizationId, boardId: board.id, columnId: column.id, directorateId: input.directorateId || null, projectId: input.projectId || null, title: input.title.trim(), description: input.description?.trim() || null, priority: input.priority || "NORMAL", status, dueAt: input.deadline || null, position: position + 1, createdById: actor.memberId, completedAt: status === "DONE" ? new Date() : null, idempotencyKey, assignees: input.responsibleMemberId ? { create: { memberId: input.responsibleMemberId } } : undefined } });
     await writeHubAudit(tx, { organizationId: actor.organizationId, memberId: actor.memberId, action: "TASK_CREATED", entity: "TASK", entityId: task.id, metadata: { projectId: input.projectId || null, directorateId: input.directorateId || null } });
     return getCoreTask(tx as unknown as PrismaClient, actor, task.id);
   });
@@ -90,8 +88,7 @@ export async function updateCoreTask(client: PrismaClient, actor: Actor, id: str
     if (!current) throw new HubApiError("Tarefa não encontrada.", 404);
     const canEdit = hasHubPermission(actor.role, "tasks:manage-all") || current.createdById === actor.memberId || current.assignees.some((item) => item.memberId === actor.memberId) || (actor.role === "DIRECTOR" && actor.directorateId === current.directorateId);
     if (!canEdit) throw new HubApiError("Ação não permitida.", 403);
-    const nextAssigneeIds = input.assigneeIds ?? (input.responsibleMemberId !== undefined ? (input.responsibleMemberId ? [input.responsibleMemberId] : []) : undefined);
-    await assertRelations(tx, actor, { directorateId: input.directorateId, projectId: input.projectId, assigneeIds: nextAssigneeIds });
+    await assertRelations(tx, actor, { directorateId: input.directorateId, projectId: input.projectId, assigneeId: input.responsibleMemberId });
     const status = input.status || (current.status as typeof STATUSES[number]);
     if (!STATUSES.includes(status)) throw new HubApiError("Status inválido.", 400);
     let board = current.board;
@@ -104,9 +101,9 @@ export async function updateCoreTask(client: PrismaClient, actor: Actor, id: str
       completedAt: status === "DONE" ? current.completedAt || new Date() : null, ...(input.archive ? { archivedAt: new Date() } : {}), ...(input.restore ? { archivedAt: null } : {}), version: { increment: 1 },
     } });
     if (!claimed.count) throw new HubApiError("A tarefa foi alterada por outra pessoa. Atualize a página.", 409);
-    if (nextAssigneeIds !== undefined) {
+    if (input.responsibleMemberId !== undefined) {
       await tx.hubTaskAssignee.deleteMany({ where: { taskId: id } });
-      if (nextAssigneeIds.length) await tx.hubTaskAssignee.createMany({ data: [...new Set(nextAssigneeIds)].map((memberId) => ({ taskId: id, memberId })), skipDuplicates: true });
+      if (input.responsibleMemberId) await tx.hubTaskAssignee.create({ data: { taskId: id, memberId: input.responsibleMemberId } });
     }
     await writeHubAudit(tx, { organizationId: actor.organizationId, memberId: actor.memberId, action: input.archive ? "TASK_ARCHIVED" : input.restore ? "TASK_RESTORED" : "TASK_UPDATED", entity: "TASK", entityId: id });
     return getCoreTask(tx as unknown as PrismaClient, actor, id);

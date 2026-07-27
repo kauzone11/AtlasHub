@@ -1,0 +1,2 @@
+import { prisma } from "@/lib/prisma"; import { requireHubPermission } from "@/lib/hub/auth"; import { hubJson, withHubApi } from "@/lib/hub/api"; import { handleApproveFinancialEntry } from "@/lib/hub/operations-handlers";
+export const POST = withHubApi<{ params: Promise<{ id: string }> }>(async (_request, context) => { const session = await requireHubPermission("finance:review"); return hubJson(await handleApproveFinancialEntry(prisma, session, (await context.params).id)); });

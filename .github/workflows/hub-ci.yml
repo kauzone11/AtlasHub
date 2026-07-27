@@ -1,0 +1,88 @@
+name: Atlas Hub CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: atlas-hub-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hub:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: atlas
+          POSTGRES_PASSWORD: atlas
+          POSTGRES_DB: atlas_hub_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U atlas -d atlas_hub_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://atlas:atlas@localhost:5432/atlas_hub_ci
+      ATLAS_HUB_TEST_DATABASE_URL: postgresql://atlas:atlas@localhost:5432/atlas_hub_ci
+      ATLAS_HUB_SESSION_SECRET: atlas-hub-ci-session-secret-change-me
+      ATLAS_HUB_ACCOUNT_SESSION_SECRET: atlas-hub-ci-account-secret-change-me
+      NODE_ENV: test
+    steps:
+      - name: Checkout destination
+        uses: actions/checkout@v4
+
+      - name: Checkout registered source SHA
+        uses: actions/checkout@v4
+        with:
+          repository: kauzone11/atlas-impact
+          ref: 57fa677dc938d5fb1082c317e92a0cfd0b93c3c4
+          path: .atlas-impact-source
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify source synchronization
+        run: npm run hub:source:verify -- "$GITHUB_WORKSPACE/.atlas-impact-source"
+
+      - name: Validate and generate Prisma
+        run: |
+          npx prisma format
+          npx prisma validate
+          npx prisma generate
+          npx prisma migrate deploy
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Hub preflights
+        run: |
+          npm run hub:collaboration:preflight
+          npm run hub:operations:preflight
+          npm run hub:strategy-growth:preflight
+          npm run hub:accounts:preflight
+
+      - name: Hub tests
+        run: npm run hub:test
+
+      - name: Build
+        run: npm run build

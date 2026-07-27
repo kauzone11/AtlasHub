@@ -25,7 +25,7 @@ export function validateHubPassword(password: string): string | null {
   if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/\d/.test(password)) {
     return "Use letras maiúsculas, minúsculas e pelo menos um número.";
   }
-  if (/open\s*impact/i.test(password) && /\d/.test(password)) {
+  if (/hub/i.test(password) && /\d/.test(password)) {
     return "Escolha uma senha que não use o nome do produto.";
   }
   return null;

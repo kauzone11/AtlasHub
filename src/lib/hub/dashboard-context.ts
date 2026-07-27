@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
-export const HUB_DASHBOARD_SCOPE_COOKIE = "open_impact_dashboard_scope";
+export const HUB_DASHBOARD_SCOPE_COOKIE = "atlas_hub_dashboard_scope";
 
 export const hubDashboardScopeCookie = {
   httpOnly: true,
@@ -12,7 +12,7 @@ export const hubDashboardScopeCookie = {
 
 export const legacyHubDashboardScopeCookie = {
   ...hubDashboardScopeCookie,
-  path: "/inicio",
+  path: "/hub",
   maxAge: 0,
 };
 

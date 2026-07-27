@@ -75,7 +75,7 @@ export function HubDirectoratesPage() {
     async () =>
       (
         await coreApi<{ directorates: Directorate[] }>(
-          "/api/directorates?archived=true",
+          "/api/hub/directorates?archived=true",
         )
       ).directorates,
     [],
@@ -95,7 +95,7 @@ export function HubDirectoratesPage() {
     try {
       setSaving(true);
       state.setError("");
-      await coreApi("/api/directorates", {
+      await coreApi("/api/hub/directorates", {
         method: "POST",
         body: JSON.stringify(form),
       });
@@ -166,7 +166,7 @@ export function HubDirectoratesPage() {
           {items.map((item) => (
             <Link
               key={item.id}
-              href={`/diretorias/${item.id}`}
+              href={`/hub/diretorias/${item.id}`}
               className={`${hubUi.panel} group p-5 text-left transition hover:border-zinc-400 hover:shadow-sm`}
             >
               <div className="flex items-start justify-between gap-3">
@@ -311,7 +311,7 @@ export function HubDirectorateDetail({ id }: { id: string }) {
   const options = useCoreOptions();
   const state = useCoreLoad(
     async () =>
-      (await coreApi<{ directorate: Detail }>(`/api/directorates/${id}`))
+      (await coreApi<{ directorate: Detail }>(`/api/hub/directorates/${id}`))
         .directorate,
     [id],
   );
@@ -333,7 +333,7 @@ export function HubDirectorateDetail({ id }: { id: string }) {
   const item = state.data;
   async function action(name: "archive" | "restore") {
     try {
-      await coreApi(`/api/directorates/${id}`, {
+      await coreApi(`/api/hub/directorates/${id}`, {
         method: "PATCH",
         body: JSON.stringify({ version: item.version, action: name }),
       });
@@ -348,7 +348,7 @@ export function HubDirectorateDetail({ id }: { id: string }) {
   }
   async function transfer(memberId: string, targetDirectorateId: string) {
     try {
-      await coreApi(`/api/directorates/${id}/members`, {
+      await coreApi(`/api/hub/directorates/${id}/members`, {
         method: "PATCH",
         body: JSON.stringify({
           memberId,
@@ -368,10 +368,10 @@ export function HubDirectorateDetail({ id }: { id: string }) {
     const approved = await requestHubConfirmation({ title: "Excluir diretoria", description: `A diretoria ${item.name} só pode ser excluída sem histórico protegido. Prefira arquivá-la quando precisar preservar o histórico.`, confirmLabel: "Confirmar exclusão" });
     if (!approved) return;
     try {
-      await coreApi(`/api/directorates/${id}?version=${item.version}`, {
+      await coreApi(`/api/hub/directorates/${id}?version=${item.version}`, {
         method: "DELETE",
       });
-      window.location.assign("/diretorias");
+      window.location.assign("/hub/diretorias");
     } catch (reason) {
       state.setError(
         reason instanceof Error ? reason.message : "Não foi possível excluir.",
@@ -387,7 +387,7 @@ export function HubDirectorateDetail({ id }: { id: string }) {
   return (
     <div className={hubUi.page}>
       <Link
-        href="/diretorias"
+        href="/hub/diretorias"
         className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-500 hover:text-black"
       >
         <ArrowLeft className="h-4 w-4" />Todas as diretorias
@@ -501,7 +501,7 @@ export function HubDirectorateDetail({ id }: { id: string }) {
           {item.primaryProjects.map((project) => (
             <Link
               key={project.id}
-              href={`/projetos/${project.id}`}
+              href={`/hub/projetos/${project.id}`}
               className={`${hubUi.panel} p-5`}
             >
               <div className="flex justify-between gap-3">
@@ -532,7 +532,7 @@ export function HubDirectorateDetail({ id }: { id: string }) {
               {item.tasks.slice(0, 12).map((task) => (
                 <Link
                   key={task.id}
-                  href={`/tarefas/${task.id}`}
+                  href={`/hub/tarefas/${task.id}`}
                   className="flex justify-between gap-3 py-3 text-sm"
                 >
                   <span>{task.title}</span>
@@ -547,7 +547,7 @@ export function HubDirectorateDetail({ id }: { id: string }) {
               {item.meetings.slice(0, 12).map((meeting) => (
                 <Link
                   key={meeting.id}
-                  href={`/reunioes/${meeting.id}`}
+                  href={`/hub/reunioes/${meeting.id}`}
                   className="block py-3"
                 >
                   <p className="text-sm font-medium">{meeting.title}</p>
@@ -673,7 +673,7 @@ function EditDirectorate({
   async function save(event: React.FormEvent) {
     event.preventDefault();
     try {
-      await coreApi(`/api/directorates/${item.id}`, {
+      await coreApi(`/api/hub/directorates/${item.id}`, {
         method: "PATCH",
         body: JSON.stringify({
           version: item.version,

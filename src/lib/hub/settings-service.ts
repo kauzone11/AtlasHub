@@ -74,7 +74,7 @@ export async function getHubSettings(client: Client, organizationId: string) {
     client.hubMember.findMany({ where: { organizationId, status: { not: "DELETED" } }, select: { id: true, name: true, email: true, role: true, status: true, organizationPosition: true, memberCategory: true, directorateId: true, directorate: { select: { id: true, name: true } }, createdAt: true }, orderBy: [{ status: "asc" }, { name: "asc" }] }),
     client.hubMemberInvitation.findMany({ where: { organizationId }, select: { id: true, normalizedEmail: true, status: true, organizationPosition: true, memberCategory: true, directorateId: true, directorate: { select: { id: true, name: true } }, appointAsDirector: true, deliveryStatus: true, deliveryAttempts: true, lastDeliveryAt: true, lastDeliveryError: true, expiresAt: true, acceptedAt: true, revokedAt: true, createdAt: true, updatedAt: true, existingInvitedMemberId: true, invitedBy: { select: { id: true, name: true } } }, orderBy: { createdAt: "desc" } }),
     client.hubDirectorate.findMany({ where: { organizationId, archivedAt: null }, select: { id: true, name: true, isActive: true, order: true, directorId: true, director: { select: { id: true, name: true, email: true } }, _count: { select: { members: true } } }, orderBy: [{ isActive: "desc" }, { order: "asc" }, { name: "asc" }] }),
-    client.hubFinancialEntry.count({ where: { organizationId } }),
+    client.hubWalletTransaction.count({ where: { account: { member: { organizationId } } } }),
   ]);
   if (!organization) throw new HubApiError("Organização não encontrada.", 404);
   return {
@@ -95,7 +95,7 @@ async function persistDelivery(client: PrismaClient, invitationId: string, resul
 }
 
 async function deliverInvitation(client: PrismaClient, invitation: { id: string; normalizedEmail: string; expiresAt: Date; organization: { name: string }; invitedBy: { name: string } }, rawToken: string) {
-  const invitationUrl = `${hubCanonicalApplicationUrl()}/convite/${rawToken}`;
+  const invitationUrl = `${hubCanonicalApplicationUrl()}/hub/convite/${rawToken}`;
   const delivery = await sendHubInvitationEmail({ to: invitation.normalizedEmail, organizationName: invitation.organization.name, inviterName: invitation.invitedBy.name, expiresAt: invitation.expiresAt, invitationUrl });
   await persistDelivery(client, invitation.id, delivery);
   return { delivery, invitationUrl: mayExposeHubInvitationLink() ? invitationUrl : undefined };
@@ -106,7 +106,7 @@ async function createInvitationRecord(client: PrismaClient, actor: SettingsActor
   const tokenHash = hashHubInvitationToken(rawToken);
   try {
     const invitation = await client.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM "HubOrganization" WHERE id = ${actor.organizationId} FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM "EconomikWorkspace" WHERE id = ${actor.organizationId} FOR UPDATE`;
       await expireStaleInvitations(tx, actor.organizationId);
       const organization = await tx.hubOrganization.findFirst({ where: { id: actor.organizationId, isActive: true }, select: { id: true, name: true } });
       const invitedBy = await tx.hubMember.findFirst({ where: { id: actor.memberId, organizationId: actor.organizationId, status: "ACTIVE" }, select: { id: true, name: true } });
@@ -165,7 +165,7 @@ export async function regenerateHubInvitation(client: PrismaClient, actor: Setti
 }
 
 async function lockOrganization(tx: Prisma.TransactionClient, organizationId: string) {
-  await tx.$queryRaw`SELECT id FROM "HubOrganization" WHERE id = ${organizationId} FOR UPDATE`;
+  await tx.$queryRaw`SELECT id FROM "EconomikWorkspace" WHERE id = ${organizationId} FOR UPDATE`;
 }
 
 async function assertSettingsAdministratorRemains(tx: Prisma.TransactionClient, organizationId: string, memberId: string) {
@@ -254,7 +254,7 @@ export async function acceptHubInvitation(client: PrismaClient, rawToken: string
       if (!invitation.existingInvitedMember.accountId) throw new HubApiError("Convite legado inconsistente.", 409);
       const sharedAccount = await tx.hubMember.count({ where: { accountId: invitation.existingInvitedMember.accountId, id: { not: invitation.existingInvitedMember.id }, status: "ACTIVE" } });
       if (sharedAccount) {
-        if (input.authenticatedAccountId !== invitation.existingInvitedMember.accountId) throw new HubApiError("Entre na conta global correspondente ao e-mail convidado.", 401);
+        if (input.authenticatedAccountId !== invitation.existingInvitedMember.accountId) throw new HubApiError("Entre na conta Hub correspondente ao e-mail convidado.", 401);
         account = await tx.hubAccount.findUniqueOrThrow({ where: { id: invitation.existingInvitedMember.accountId } });
         member = await tx.hubMember.update({ where: { id: invitation.existingInvitedMember.id }, data: { name: fullName, status: "ACTIVE", passwordHash: account.passwordHash, mustChangePassword: account.mustChangePassword, organizationPosition: "MEMBER", memberCategory: invitation.memberCategory, directorateId: invitation.directorateId, sessionVersion: { increment: 1 } } });
       } else {
@@ -264,7 +264,7 @@ export async function acceptHubInvitation(client: PrismaClient, rawToken: string
         member = await tx.hubMember.update({ where: { id: invitation.existingInvitedMember.id }, data: { name: fullName, status: "ACTIVE", passwordHash, mustChangePassword: false, organizationPosition: "MEMBER", memberCategory: invitation.memberCategory, directorateId: invitation.directorateId, sessionVersion: { increment: 1 } } });
       }
     } else if (existingAccount) {
-      if (!input.authenticatedAccountId || input.authenticatedAccountId !== existingAccount.id) throw new HubApiError("Entre na conta global correspondente ao e-mail convidado.", 401);
+      if (!input.authenticatedAccountId || input.authenticatedAccountId !== existingAccount.id) throw new HubApiError("Entre na conta Hub correspondente ao e-mail convidado.", 401);
       member = await tx.hubMember.create({ data: { organizationId: invitation.organizationId, accountId: existingAccount.id, name: fullName, email: invitation.normalizedEmail, normalizedEmail: invitation.normalizedEmail, passwordHash: existingAccount.passwordHash, mustChangePassword: existingAccount.mustChangePassword, role: "MEMBER", status: "ACTIVE", organizationPosition: "MEMBER", memberCategory: invitation.memberCategory, directorateId: invitation.directorateId } });
     } else {
       if (passwordError) throw new HubApiError(passwordError, 422);
@@ -272,10 +272,12 @@ export async function acceptHubInvitation(client: PrismaClient, rawToken: string
       account = await tx.hubAccount.create({ data: { email: invitation.normalizedEmail, normalizedEmail: invitation.normalizedEmail, passwordHash, mustChangePassword: false } });
       member = await tx.hubMember.create({ data: { organizationId: invitation.organizationId, accountId: account.id, name: fullName, email: invitation.normalizedEmail, normalizedEmail: invitation.normalizedEmail, passwordHash, mustChangePassword: false, role: "MEMBER", status: "ACTIVE", organizationPosition: "MEMBER", memberCategory: invitation.memberCategory, directorateId: invitation.directorateId } });
     }
+    await tx.hubWalletAccount.upsert({ where: { memberId: member.id }, create: { memberId: member.id }, update: {} });
     if (invitation.organizationPosition === "PRESIDENT") await transferHubPresidencyInTransaction(tx, { organizationId: invitation.organizationId, memberId: invitation.invitedById }, member.id);
     else if (invitation.organizationPosition === "COUNSELOR") member = await tx.hubMember.update({ where: { id: member.id }, data: { organizationPosition: "COUNSELOR", sessionVersion: { increment: 1 } } });
     if (invitation.appointAsDirector && invitation.directorateId) await tx.hubDirectorate.update({ where: { id: invitation.directorateId }, data: { directorId: member.id, version: { increment: 1 } } });
     await tx.hubMemberInvitation.update({ where: { id: invitation.id }, data: { status: "ACCEPTED", acceptedAt: new Date(), version: { increment: 1 } } });
+    await tx.hubMemberLifecycleEvent.create({ data: { organizationId: invitation.organizationId, memberId: member.id, type: "JOINED", recordedById: invitation.invitedById, metadata: { invitationId: invitation.id, organizationPosition: invitation.organizationPosition, memberCategory: invitation.memberCategory, directorateId: invitation.directorateId } } });
     await writeHubAudit(tx, { organizationId: invitation.organizationId, memberId: invitation.invitedById, action: "MEMBER_INVITATION_ACCEPTED", entity: "MEMBER", entityId: member.id, metadata: { invitationId: invitation.id, normalizedEmail: invitation.normalizedEmail } });
     return { memberId: member.id, accountId: account!.id, organizationId: invitation.organizationId };
   }, { isolationLevel: "Serializable" });

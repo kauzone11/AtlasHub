@@ -213,9 +213,9 @@ export async function createMeeting(
       )
         throw new HubApiError("Diretoria nao encontrada.", 404);
       const directorateMembers = input.organizationWide
-        ? await tx.hubMember.findMany({ where: { organizationId: actor.organizationId, status: "ACTIVE" }, select: { id: true, directorateId: true } })
+        ? await tx.hubMember.findMany({ where: { organizationId: actor.organizationId, status: "ACTIVE" }, select: { id: true } })
         : selectedDirectorateIds.length
-        ? await tx.hubMember.findMany({ where: { organizationId: actor.organizationId, status: "ACTIVE", directorateId: { in: selectedDirectorateIds } }, select: { id: true, directorateId: true } })
+        ? await tx.hubMember.findMany({ where: { organizationId: actor.organizationId, status: "ACTIVE", directorateId: { in: selectedDirectorateIds } }, select: { id: true } })
         : [];
       const invitedMemberIds = [...new Set([actor.memberId, ...input.participantIds, ...directorateMembers.map((member) => member.id)])];
       if (!input.organizationWide && !selectedDirectorateIds.length && !input.participantIds.length && !(input.externalGuests || []).length)
@@ -278,12 +278,6 @@ export async function createMeeting(
         },
         select: meetingSelect,
       });
-      const participantSources = [
-        { meetingId: meeting.id, memberId: actor.memberId, sourceType: "CREATOR" as const, directorateId: null },
-        ...input.participantIds.map((memberId) => ({ meetingId: meeting.id, memberId, sourceType: "DIRECT" as const, directorateId: null })),
-        ...directorateMembers.map((member) => ({ meetingId: meeting.id, memberId: member.id, sourceType: input.organizationWide ? "ORGANIZATION" as const : "DIRECTORATE" as const, directorateId: input.organizationWide ? null : member.directorateId })),
-      ];
-      await tx.hubMeetingParticipantSource.createMany({ data: participantSources, skipDuplicates: true });
       await writeHubAudit(tx, {
         organizationId: actor.organizationId,
         memberId: actor.memberId,
@@ -319,7 +313,7 @@ export async function createMeeting(
             type: "MEETING_INVITED",
             title: "Convite para reuniao",
             body: meeting.title,
-            href: `/reunioes/${meeting.id}`,
+            href: `/hub/reunioes/${meeting.id}`,
             entityType: "MEETING",
             entityId: meeting.id,
             idempotencyKey: `meeting:${meeting.id}:invited:${member.id}`,
@@ -431,7 +425,7 @@ export async function respondMeeting(
             type: "MEETING_RESPONSE",
             title: "Resposta a reuniao",
             body: status,
-            href: `/reunioes/${meeting.id}`,
+            href: `/hub/reunioes/${meeting.id}`,
             entityType: "MEETING",
             entityId: meeting.id,
             idempotencyKey: `meeting-response:${eventId}:${meeting.createdById}`,
@@ -546,7 +540,7 @@ export async function changeMeetingState(
             title:
               action === "cancel" ? "Reuniao cancelada" : "Reuniao concluida",
             body: meeting.title,
-            href: `/reunioes/${meeting.id}`,
+            href: `/hub/reunioes/${meeting.id}`,
             entityType: "MEETING",
             entityId: meeting.id,
             idempotencyKey: `meeting:${meeting.id}:${status.toLowerCase()}:${item.memberId}`,
@@ -806,7 +800,7 @@ export async function createTask(
             type: "TASK_ASSIGNED",
             title: "Nova tarefa atribuida",
             body: task.title,
-            href: `/inicio/quadros/${board.id}?task=${task.id}`,
+            href: `/hub/quadros/${board.id}?task=${task.id}`,
             entityType: "TASK",
             entityId: task.id,
             idempotencyKey: `task:${task.id}:assigned:${item.id}`,
@@ -926,7 +920,7 @@ export async function scheduleMeeting(
               type: "MEETING_INVITED",
               title: "Convite para reuniao",
               body: meeting.title,
-              href: `/reunioes/${meeting.id}`,
+              href: `/hub/reunioes/${meeting.id}`,
               entityType: "MEETING",
               entityId: meeting.id,
               idempotencyKey: `meeting:${meeting.id}:invited:${recipientMemberId}`,
@@ -1102,7 +1096,7 @@ export async function updateMeeting(
                 type: "MEETING_INVITED" as const,
                 title: "Convite para reuniao",
                 body: updated.title,
-                href: `/reunioes/${meetingId}`,
+                href: `/hub/reunioes/${meetingId}`,
                 entityType: "MEETING",
                 entityId: meetingId,
                 idempotencyKey: `meeting:${meetingId}:invited:${updated.updatedAt.getTime()}:${recipientMemberId}`,
@@ -1116,7 +1110,7 @@ export async function updateMeeting(
                 type: "MEETING_PARTICIPANT_REMOVED" as const,
                 title: "Participacao em reuniao removida",
                 body: updated.title,
-                href: "/reunioes",
+                href: "/hub/reunioes",
                 entityType: "MEETING",
                 entityId: meetingId,
                 idempotencyKey: `meeting:${meetingId}:removed:${updated.updatedAt.getTime()}:${recipientMemberId}`,
@@ -1136,7 +1130,7 @@ export async function updateMeeting(
                     type: "MEETING_UPDATED" as const,
                     title: "Reuniao atualizada",
                     body: updated.title,
-                    href: `/reunioes/${meetingId}`,
+                    href: `/hub/reunioes/${meetingId}`,
                     entityType: "MEETING",
                     entityId: meetingId,
                     idempotencyKey: `meeting:${meetingId}:updated:${updated.updatedAt.getTime()}:${recipientMemberId}`,
@@ -1260,7 +1254,7 @@ export async function createMeetingDecision(
         type: "MEETING_DECISION_RECORDED" as const,
         title: "Nova decisao registrada",
         body: created.title,
-        href: `/reunioes/${meetingId}`,
+        href: `/hub/reunioes/${meetingId}`,
         entityType: "MEETING_DECISION",
         entityId: created.id,
         idempotencyKey: `meeting:${meetingId}:decision:${created.id}:${item.memberId}`,
@@ -1390,7 +1384,7 @@ export async function moveTask(
           type: column.isDoneColumn ? "TASK_COMPLETED" : "TASK_UPDATED",
           title: column.isDoneColumn ? "Tarefa concluída" : "Tarefa movida",
           body: task.title,
-          href: `/tarefas/${task.id}`,
+          href: `/hub/tarefas/${task.id}`,
           entityType: "TASK",
           entityId: task.id,
           idempotencyKey: `task:${task.id}:move:v${input.version + 1}:${recipientMemberId}`,

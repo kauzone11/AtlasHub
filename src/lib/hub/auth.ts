@@ -5,9 +5,9 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { HUB_ROLE_PERMISSIONS, type HubPermission } from "@/lib/hub/permissions";
 
-export const HUB_SESSION_COOKIE = "open_impact_session";
-export const HUB_ACCOUNT_SESSION_COOKIE = "open_impact_account_session";
-export const LEGACY_HUB_SESSION_COOKIE = "open_impact_legacy_session";
+export const HUB_SESSION_COOKIE = "atlas_hub_session";
+export const HUB_ACCOUNT_SESSION_COOKIE = "atlas_hub_account_session";
+export const LEGACY_HUB_SESSION_COOKIE = "economik_session";
 const SALT_ROUNDS = 12;
 const DEFAULT_MAX_AGE_SECONDS = 86_400;
 
@@ -105,6 +105,8 @@ function shouldUseSecureCookies() {
 }
 
 type HubSecretEnvironment = {
+  ATLAS_HUB_AUTH_SECRET?: string;
+  ECONOMIK_AUTH_SECRET?: string;
   AUTH_SECRET?: string;
   NODE_ENV?: string;
 };
@@ -117,15 +119,25 @@ function assertSecretStrength(secret: string | undefined, variableName: string, 
 
 export function resolveHubSessionSecrets(environment: HubSecretEnvironment = process.env) {
   const production = environment.NODE_ENV === "production";
+  assertSecretStrength(environment.ATLAS_HUB_AUTH_SECRET, "ATLAS_HUB_AUTH_SECRET", production);
+  assertSecretStrength(environment.ECONOMIK_AUTH_SECRET, "ECONOMIK_AUTH_SECRET", production);
   assertSecretStrength(environment.AUTH_SECRET, "AUTH_SECRET", production);
 
-  const canonical = environment.AUTH_SECRET
-    || (!production ? "open-impact-local-secret-change-before-production" : undefined);
+  const canonical = environment.ATLAS_HUB_AUTH_SECRET
+    || environment.ECONOMIK_AUTH_SECRET
+    || environment.AUTH_SECRET
+    || (!production ? "hub-local-only-secret-change-before-production" : undefined);
   if (!canonical || canonical.length < 32) {
-    throw new Error("AUTH_SECRET precisa ter pelo menos 32 caracteres em produção.");
+    throw new Error("ATLAS_HUB_AUTH_SECRET precisa ter pelo menos 32 caracteres em produção.");
   }
 
-  const legacy = [canonical];
+  const legacy = Array.from(new Set([
+    environment.ECONOMIK_AUTH_SECRET,
+    environment.AUTH_SECRET,
+    environment.ATLAS_HUB_AUTH_SECRET,
+    canonical,
+    ...(!production ? ["economik-local-only-secret-change-before-production"] : []),
+  ].filter((secret): secret is string => Boolean(secret))));
   return { canonical, legacy };
 }
 

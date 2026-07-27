@@ -1,0 +1,7 @@
+import { prisma } from "@/lib/prisma";
+import { requireHubPermission } from "@/lib/hub/auth";
+import { HubApiError, hubJson, withHubApi } from "@/lib/hub/api";
+import { updateCoreFinancialEntry } from "@/lib/hub/finance-service";
+type Context = { params: Promise<{ id: string }> };
+const day = (value: unknown) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00.000Z`) : undefined;
+export const PATCH = withHubApi<Context>(async (request, context) => { const session = await requireHubPermission("finance:create"); const { id } = await context.params; const body = await request.json().catch(() => null) as Record<string, unknown> | null; if (!body) throw new HubApiError("Dados inválidos.", 400); const entry = await updateCoreFinancialEntry(prisma, { ...session, currency: session.organization.currency }, id, { description: typeof body.description === "string" ? body.description : undefined, totalCents: Number.isSafeInteger(Number(body.totalCents)) ? Number(body.totalCents) : undefined, competenceDate: day(body.competenceDate), dueDate: day(body.dueDate), directorateId: typeof body.directorateId === "string" || body.directorateId === null ? body.directorateId : undefined, projectId: typeof body.projectId === "string" || body.projectId === null ? body.projectId : undefined, cancelReason: typeof body.cancelReason === "string" ? body.cancelReason : undefined }); return hubJson({ entry }); });

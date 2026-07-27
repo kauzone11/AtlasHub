@@ -146,8 +146,8 @@ export function HubMeetingDetailPage({ id }: { id: string }) {
     try {
       setError("");
       const [detail, optionData] = await Promise.all([
-        api(`/api/meetings/${id}`),
-        api("/api/collaboration/options"),
+        api(`/api/hub/meetings/${id}`),
+        api("/api/hub/collaboration/options"),
       ]);
       const next = detail.meeting as Meeting;
       setMeeting(next);
@@ -225,7 +225,7 @@ export function HubMeetingDetailPage({ id }: { id: string }) {
         title={meeting.title}
         description={`${new Date(meeting.startAt).toLocaleString("pt-BR", { timeZone: meeting.timezone })} · ${labels[meeting.status]}`}
         action={
-          <Link href="/reunioes" className={hubUi.secondaryButton}>
+          <Link href="/hub/reunioes" className={hubUi.secondaryButton}>
             <ArrowLeft className="h-4 w-4" />
             Voltar
           </Link>
@@ -248,7 +248,7 @@ export function HubMeetingDetailPage({ id }: { id: string }) {
             className={hubUi.primaryButton}
             onClick={() =>
               operation(async () => {
-                await api(`/api/meetings/${id}/schedule`, {
+                await api(`/api/hub/meetings/${id}/schedule`, {
                   method: "POST",
                   body: JSON.stringify({
                     confirmConflicts: Boolean(conflictReason),
@@ -274,7 +274,7 @@ export function HubMeetingDetailPage({ id }: { id: string }) {
             className={hubUi.primaryButton}
             onClick={() =>
               operation(async () => {
-                await api(`/api/meetings/${id}/complete`, {
+                await api(`/api/hub/meetings/${id}/complete`, {
                   method: "POST",
                   body: JSON.stringify({
                     attendance: meeting.participants.map((item) => ({
@@ -297,7 +297,7 @@ export function HubMeetingDetailPage({ id }: { id: string }) {
           onSubmit={(event) => {
             event.preventDefault();
             void operation(async () => {
-              await api(`/api/meetings/${id}/cancel`, {
+              await api(`/api/hub/meetings/${id}/cancel`, {
                 method: "POST",
                 body: JSON.stringify({ reason: cancelReason }),
               });
@@ -344,7 +344,7 @@ export function HubMeetingDetailPage({ id }: { id: string }) {
                 className={hubUi.secondaryButton}
                 onClick={() =>
                   operation(async () => {
-                    await api(`/api/meetings/${id}/respond`, {
+                    await api(`/api/hub/meetings/${id}/respond`, {
                       method: "POST",
                       body: JSON.stringify({
                         status,
@@ -368,7 +368,7 @@ export function HubMeetingDetailPage({ id }: { id: string }) {
           onSubmit={(event) => {
             event.preventDefault();
             void operation(async () => {
-              await api(`/api/meetings/${id}/audience`, {
+              await api(`/api/hub/meetings/${id}/audience`, {
                 method: "PUT",
                 body: JSON.stringify({
                   version: meeting.version,
@@ -387,7 +387,7 @@ export function HubMeetingDetailPage({ id }: { id: string }) {
                     }),
                 }),
               });
-              await api(`/api/meetings/${id}`, {
+              await api(`/api/hub/meetings/${id}`, {
                 method: "PATCH",
                 body: JSON.stringify({
                   title: form.title,
@@ -581,7 +581,7 @@ export function HubMeetingDetailPage({ id }: { id: string }) {
               className={`${hubUi.secondaryButton} mt-4`}
               onClick={() =>
                 operation(async () => {
-                  await api(`/api/meetings/${id}/attendance`, {
+                  await api(`/api/hub/meetings/${id}/attendance`, {
                     method: "PUT",
                     body: JSON.stringify({
                       attendance: Object.entries(attendance).map(
@@ -739,7 +739,7 @@ export function HubMeetingDetailPage({ id }: { id: string }) {
                 className={hubUi.primaryButton}
                 onClick={() =>
                   operation(async () => {
-                    await api(`/api/meetings/${id}/agenda`, {
+                    await api(`/api/hub/meetings/${id}/agenda`, {
                       method: "PUT",
                       body: JSON.stringify({ items: agenda }),
                     });
@@ -780,7 +780,7 @@ export function HubMeetingDetailPage({ id }: { id: string }) {
               className={`${hubUi.primaryButton} mt-3`}
               onClick={() =>
                 operation(async () => {
-                  await api(`/api/meetings/${id}`, {
+                  await api(`/api/hub/meetings/${id}`, {
                     method: "PATCH",
                     body: JSON.stringify({
                       minutes,
@@ -820,7 +820,7 @@ export function HubMeetingDetailPage({ id }: { id: string }) {
             onSubmit={(event) => {
               event.preventDefault();
               void operation(async () => {
-                await api(`/api/meetings/${id}/decisions`, {
+                await api(`/api/hub/meetings/${id}/decisions`, {
                   method: "POST",
                   body: JSON.stringify({ title: decision }),
                 });
@@ -846,7 +846,7 @@ export function HubMeetingDetailPage({ id }: { id: string }) {
           meeting.sourceTasks.map((task) => (
             <Link
               key={task.id}
-              href={`/tarefas/${task.id}`}
+              href={`/hub/tarefas/${task.id}`}
               className="mt-2 block text-sm underline"
             >
               {task.title} {task.completedAt ? "(concluida)" : ""}
@@ -870,7 +870,7 @@ export function HubMeetingDetailPage({ id }: { id: string }) {
                 );
                 if (!board?.columns[0])
                   throw new Error("Selecione um quadro valido.");
-                await api("/api/tasks", {
+                await api("/api/hub/tasks", {
                   method: "POST",
                   body: JSON.stringify({
                     boardId: board.id,

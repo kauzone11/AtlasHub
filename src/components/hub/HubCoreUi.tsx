@@ -7,14 +7,14 @@ import { hubUi } from "@/components/hub/styles";
 export async function coreApi<T = Record<string, unknown>>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, { cache: "no-store", ...init, headers: { "Content-Type": "application/json", ...(init?.headers || {}) } });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error((typeof data.error === "string" ? data.error : data.error?.message) || "Não foi possível concluir a operação.");
+  if (!response.ok) throw new Error(data.error || "Não foi possível concluir a operação.");
   return data as T;
 }
 
 export type CoreOptions = { members: Array<{ id: string; name: string; directorateId: string | null }>; directorates: Array<{ id: string; name: string }>; projects: Array<{ id: string; title: string; primaryDirectorateId: string | null }>; permissions: string[]; memberId: string; directorateId: string | null; timezone: string };
 export function useCoreOptions() {
   const [options, setOptions] = useState<CoreOptions | null>(null);
-  useEffect(() => { void coreApi<CoreOptions>("/api/collaboration/options").then(setOptions).catch(() => undefined); }, []);
+  useEffect(() => { void coreApi<CoreOptions>("/api/hub/collaboration/options").then(setOptions).catch(() => undefined); }, []);
   return options;
 }
 

@@ -10,7 +10,7 @@ export function HubNotificationsProvider({ children }: { children: React.ReactNo
   const mounted = useRef(true);
   const refresh = useCallback(async () => {
     try {
-      const response = await fetch("/api/notifications/summary", { cache: "no-store" });
+      const response = await fetch("/api/hub/notifications/summary", { cache: "no-store" });
       if (!response.ok) return;
       const payload = await response.json();
       if (mounted.current) setUnreadCount(Number(payload.unreadCount) || 0);

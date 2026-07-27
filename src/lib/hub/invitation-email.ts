@@ -1,4 +1,4 @@
-export type InvitationEmail = {
+type InvitationEmail = {
   to: string;
   organizationName: string;
   inviterName: string;
@@ -11,19 +11,20 @@ export type HubInvitationDeliveryResult =
   | { status: "NOT_CONFIGURED" }
   | { status: "FAILED"; error: string };
 
-export interface InvitationEmailProvider {
-  send(input: InvitationEmail): Promise<HubInvitationDeliveryResult>;
-}
-
 export function hubCanonicalApplicationUrl(environment = process.env) {
-  const configured = environment.APP_URL || environment.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const parsed = new URL(configured);
-  if (environment.NODE_ENV === "production" && parsed.protocol !== "https:") throw new Error("APP_URL deve usar HTTPS em produção.");
-  return parsed.toString().replace(/\/$/, "");
+  const configured = environment.ATLAS_APP_URL || environment.NEXT_PUBLIC_APP_URL;
+  if (configured) {
+    const parsed = new URL(configured);
+    if (parsed.protocol !== "https:" && !(environment.NODE_ENV !== "production" && parsed.protocol === "http:")) {
+      throw new Error("ATLAS_APP_URL deve usar HTTPS em produção.");
+    }
+    return parsed.toString().replace(/\/$/, "");
+  }
+  return environment.NODE_ENV === "production" ? "https://atlas.ouseagency.com" : "http://localhost:3000";
 }
 
 export function isHubInvitationEmailConfigured(environment = process.env) {
-  return Boolean(environment.RESEND_API_KEY && environment.INVITATION_EMAIL_FROM);
+  return Boolean(environment.RESEND_API_KEY && environment.HUB_INVITATION_EMAIL_FROM);
 }
 
 export function mayExposeHubInvitationLink(environment = process.env) {
@@ -35,32 +36,24 @@ function safeDeliveryError(value: unknown) {
   return message.replace(/https?:\/\/\S+/g, "[url removida]").slice(0, 500);
 }
 
-export class ResendInvitationEmailProvider implements InvitationEmailProvider {
-  constructor(private readonly environment: NodeJS.ProcessEnv = process.env) {}
-
-  async send(input: InvitationEmail): Promise<HubInvitationDeliveryResult> {
-    if (!isHubInvitationEmailConfigured(this.environment)) return { status: "NOT_CONFIGURED" };
-    try {
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${this.environment.RESEND_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from: this.environment.INVITATION_EMAIL_FROM,
-          to: [input.to],
-          subject: `Convite para ${input.organizationName} no Open Impact EJ`,
-          text: `${input.inviterName} convidou você para ${input.organizationName}. O convite expira em ${input.expiresAt.toLocaleString("pt-BR")}. Aceite em: ${input.invitationUrl}`,
-        }),
-      });
-      if (!response.ok) throw new Error(`Provedor de e-mail respondeu ${response.status}.`);
-      const payload = await response.json().catch(() => ({})) as { id?: string };
-      return { status: "SENT", providerMessageId: payload.id };
-    } catch (error) {
-      return { status: "FAILED", error: safeDeliveryError(error) };
-    }
+export async function sendHubInvitationEmail(input: InvitationEmail, environment = process.env): Promise<HubInvitationDeliveryResult> {
+  if (environment.NODE_ENV === "test") return { status: "NOT_CONFIGURED" };
+  if (!isHubInvitationEmailConfigured(environment)) return { status: "NOT_CONFIGURED" };
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${environment.RESEND_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: environment.HUB_INVITATION_EMAIL_FROM,
+        to: [input.to],
+        subject: `Convite para ${input.organizationName} no Atlas Hub`,
+        text: `${input.inviterName} convidou você para ${input.organizationName}. O convite expira em ${input.expiresAt.toLocaleString("pt-BR")}. Aceite em: ${input.invitationUrl}`,
+      }),
+    });
+    if (!response.ok) throw new Error(`Provedor de e-mail respondeu ${response.status}.`);
+    const payload = await response.json().catch(() => ({})) as { id?: string };
+    return { status: "SENT", providerMessageId: payload.id };
+  } catch (error) {
+    return { status: "FAILED", error: safeDeliveryError(error) };
   }
-}
-
-export async function sendHubInvitationEmail(input: InvitationEmail, environment = process.env, provider: InvitationEmailProvider = new ResendInvitationEmailProvider(environment)) {
-  if (environment.NODE_ENV === "test") return { status: "NOT_CONFIGURED" } as const;
-  return provider.send(input);
 }

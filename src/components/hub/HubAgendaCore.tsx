@@ -82,7 +82,7 @@ export function HubCalendarCore() {
   const state = useCoreLoad(
     async () =>
       await coreApi<{ events: CalendarEvent[]; timezone: string }>(
-        `/api/calendar?from=${period.from.toISOString()}&to=${period.to.toISOString()}`,
+        `/api/hub/calendar?from=${period.from.toISOString()}&to=${period.to.toISOString()}`,
       ),
     [period.from.getTime(), period.to.getTime()],
   );
@@ -261,7 +261,7 @@ function EventForm({
     formEvent.preventDefault();
     try {
       await coreApi(
-        event ? `/api/calendar/${event.id}` : "/api/calendar",
+        event ? `/api/hub/calendar/${event.id}` : "/api/hub/calendar",
         {
           method: event ? "PATCH" : "POST",
           body: JSON.stringify(
@@ -383,7 +383,7 @@ export function HubMeetingsCore() {
   const state = useCoreLoad(
     async () =>
       await coreApi<{ meetings: Meeting[] }>(
-        "/api/meetings?filter=upcoming&view=list",
+        "/api/hub/meetings?filter=upcoming&view=list",
       ),
     [],
   );
@@ -394,7 +394,7 @@ export function HubMeetingsCore() {
       <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="font-mono text-[11px] uppercase tracking-[0.16em] text-zinc-500">Coordenação de equipe</p><h2 className="mt-2 font-display text-3xl font-semibold tracking-[-0.035em]">Reuniões</h2><p className="mt-2 text-sm text-zinc-500">Convide pessoas no momento certo e acompanhe cada encontro.</p></div><button onClick={() => setOpen(true)} className={hubUi.primaryButton}><Plus className="h-4 w-4" />Nova reunião</button></header>
       <ErrorNotice message={state.error} />
       <section className="grid gap-4 md:grid-cols-3"><MeetingMetric icon={<CalendarDays />} label="Reuniões futuras" value={String(meetings.length)} note="Agenda da organização" /><MeetingMetric icon={<Users />} label="Participação confirmada" value={participants ? `${Math.round((confirmed / participants) * 100)}%` : "—"} note={`${Math.max(participants - confirmed, 0)} convites aguardando`} /><MeetingMetric icon={<Clock3 />} label="Próxima reunião" value={nextMeeting ? new Date(nextMeeting.startAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "—"} note={nextMeeting?.title || "Nenhuma reunião agendada"} /></section>
-      <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white"><div className="border-b border-zinc-200 px-5 py-5"><h3 className="font-display text-xl font-semibold">Agenda de reuniões</h3><p className="mt-1 text-sm text-zinc-500">{meetings.length} encontros futuros</p></div><div className="divide-y divide-zinc-200">{meetings.map((meeting) => <Link key={meeting.id} href={`/reunioes/${meeting.id}`} className="flex flex-col gap-4 px-5 py-5 transition hover:bg-zinc-50 sm:flex-row sm:items-center"><div className="min-w-[94px]"><p className="font-mono text-xs font-semibold">{new Date(meeting.startAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}—{new Date(meeting.endAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p><p className="mt-1 text-xs text-zinc-500">{new Date(meeting.startAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</p></div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h4 className="truncate font-semibold">{meeting.title}</h4><span className="rounded-full bg-zinc-100 px-2 py-0.5 font-mono text-[10px] font-semibold">{meeting.status}</span></div><div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500"><span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{meeting.location || "Sem local"}</span><span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" />{meeting.participants.length} participantes</span></div></div><div className="flex -space-x-2">{meeting.participants.slice(0, 4).map((participant) => <span key={participant.memberId} title={participant.member.name} className="grid h-8 w-8 place-items-center rounded-full border-2 border-white bg-zinc-100 font-mono text-[10px] font-semibold">{participant.member.name.split(" ").map((part) => part[0]).slice(0, 2).join("")}</span>)}</div></Link>)}{!meetings.length ? <Empty>Nenhuma reunião futura.</Empty> : null}</div></section>
+      <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white"><div className="border-b border-zinc-200 px-5 py-5"><h3 className="font-display text-xl font-semibold">Agenda de reuniões</h3><p className="mt-1 text-sm text-zinc-500">{meetings.length} encontros futuros</p></div><div className="divide-y divide-zinc-200">{meetings.map((meeting) => <Link key={meeting.id} href={`/hub/reunioes/${meeting.id}`} className="flex flex-col gap-4 px-5 py-5 transition hover:bg-zinc-50 sm:flex-row sm:items-center"><div className="min-w-[94px]"><p className="font-mono text-xs font-semibold">{new Date(meeting.startAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}—{new Date(meeting.endAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p><p className="mt-1 text-xs text-zinc-500">{new Date(meeting.startAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</p></div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h4 className="truncate font-semibold">{meeting.title}</h4><span className="rounded-full bg-zinc-100 px-2 py-0.5 font-mono text-[10px] font-semibold">{meeting.status}</span></div><div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500"><span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{meeting.location || "Sem local"}</span><span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" />{meeting.participants.length} participantes</span></div></div><div className="flex -space-x-2">{meeting.participants.slice(0, 4).map((participant) => <span key={participant.memberId} title={participant.member.name} className="grid h-8 w-8 place-items-center rounded-full border-2 border-white bg-zinc-100 font-mono text-[10px] font-semibold">{participant.member.name.split(" ").map((part) => part[0]).slice(0, 2).join("")}</span>)}</div></Link>)}{!meetings.length ? <Empty>Nenhuma reunião futura.</Empty> : null}</div></section>
       <CoreModal
         open={open}
         onClose={() => setOpen(false)}
@@ -442,7 +442,7 @@ function MeetingForm({
     event.preventDefault();
     try {
       const result = await coreApi<{ meeting: { id: string } }>(
-        "/api/meetings",
+        "/api/hub/meetings",
         {
           method: "POST",
           body: JSON.stringify({
@@ -466,7 +466,7 @@ function MeetingForm({
       );
       await onSaved();
       if (result.meeting?.id)
-        window.location.assign(`/reunioes/${result.meeting.id}`);
+        window.location.assign(`/hub/reunioes/${result.meeting.id}`);
     } catch (reason) {
       onError(
         reason instanceof Error ? reason.message : "Não foi possível criar.",
@@ -567,7 +567,7 @@ export function HubAvailabilityCore() {
   const options = useCoreOptions();
   const list = useCoreLoad(
     async () =>
-      (await coreApi<{ polls: Poll[] }>("/api/availability/polls")).polls,
+      (await coreApi<{ polls: Poll[] }>("/api/hub/availability/polls")).polls,
     [],
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -576,7 +576,7 @@ export function HubAvailabilityCore() {
       selectedId
         ? (
             await coreApi<{ poll: PollDetail }>(
-              `/api/availability/polls/${selectedId}`,
+              `/api/hub/availability/polls/${selectedId}`,
             )
           ).poll
         : null,
@@ -605,7 +605,7 @@ export function HubAvailabilityCore() {
   async function save() {
     if (!selectedId) return;
     try {
-      await coreApi(`/api/availability/polls/${selectedId}`, {
+      await coreApi(`/api/hub/availability/polls/${selectedId}`, {
         method: "PUT",
         body: JSON.stringify({ slots: [...draft] }),
       });
@@ -632,7 +632,7 @@ export function HubAvailabilityCore() {
                   onClick={async () => {
                     try {
                       const result = await coreApi<{ meeting: { id: string } }>(
-                        `/api/availability/polls/${selectedId}`,
+                        `/api/hub/availability/polls/${selectedId}`,
                         {
                           method: "POST",
                           body: JSON.stringify({
@@ -641,7 +641,7 @@ export function HubAvailabilityCore() {
                         },
                       );
                       window.location.assign(
-                        `/reunioes/${result.meeting.id}`,
+                        `/hub/reunioes/${result.meeting.id}`,
                       );
                     } catch (reason) {
                       detail.setError(
@@ -695,7 +695,7 @@ function PollForm({
     event.preventDefault();
     try {
       const result = await coreApi<{ poll: { id: string } }>(
-        "/api/availability/polls",
+        "/api/hub/availability/polls",
         { method: "POST", body: JSON.stringify(form) },
       );
       await onSaved(result.poll.id);

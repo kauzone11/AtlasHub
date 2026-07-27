@@ -7,8 +7,6 @@ import { hubCoreTransaction } from "@/lib/hub/core-transaction";
 
 type Actor = { organizationId: string; memberId: string; role: HubRole; directorateId?: string | null };
 const ACTIVE = ["DRAFT", "PLANNED", "ACTIVE", "APPROVED", "ON_HOLD"];
-const PROJECT_STATUSES = ["DRAFT", "PLANNED", "ACTIVE", "ON_HOLD", "COMPLETED", "CANCELLED", "ARCHIVED"];
-const PROJECT_PRIORITIES = ["LOW", "NORMAL", "HIGH", "URGENT"];
 
 function canManage(actor: Actor, directorateIds: string[] = []) {
   return hasHubPermission(actor.role, "projects:manage") || (actor.role === "DIRECTOR" && Boolean(actor.directorateId) && directorateIds.includes(actor.directorateId!));
@@ -59,13 +57,11 @@ export async function getProject(client: PrismaClient, actor: Actor, id: string)
   return { ...project, directorates, team: project.teamMembers.map((link) => link.member), meetings, capabilities: { canManage: canManage(actor, [project.primaryDirectorateId || "", ...directorates.map((item) => item.id)]) } };
 }
 
-export type ProjectInput = { name: string; client?: string | null; description?: string | null; primaryDirectorateId: string; directorateIds?: string[]; managerId?: string | null; teamMemberIds?: string[]; status?: string; priority?: string; startDate?: Date | null; deadline?: Date | null; progress?: number; nextDelivery?: string | null };
+export type ProjectInput = { name: string; client?: string | null; description?: string | null; primaryDirectorateId: string; directorateIds?: string[]; managerId?: string | null; teamMemberIds?: string[]; status?: string; startDate?: Date | null; deadline?: Date | null; progress?: number; nextDelivery?: string | null };
 
 export async function createProject(client: PrismaClient, actor: Actor, input: ProjectInput, idempotencyKey: string = crypto.randomUUID()) {
   const name = input.name.trim();
   if (name.length < 2) throw new HubApiError("Informe um nome válido.", 400);
-  if (input.status && !PROJECT_STATUSES.includes(input.status)) throw new HubApiError("Status de projeto inválido.", 400);
-  if (input.priority && !PROJECT_PRIORITIES.includes(input.priority)) throw new HubApiError("Prioridade de projeto inválida.", 400);
   if (!Number.isInteger(input.progress ?? 0) || (input.progress ?? 0) < 0 || (input.progress ?? 0) > 100) throw new HubApiError("Progresso inválido.", 400);
   return hubCoreTransaction(client, async (tx) => {
     const relations = await scopedRelations(tx, actor, input);
@@ -74,8 +70,8 @@ export async function createProject(client: PrismaClient, actor: Actor, input: P
     if (existing) return getProject(tx as unknown as PrismaClient, actor, existing.id);
     const project = await tx.hubProject.create({ data: {
       organizationId: actor.organizationId, idempotencyKey, title: name, client: input.client?.trim() || null, description: input.description?.trim() || null,
-      primaryDirectorateId: input.primaryDirectorateId, managerId: input.managerId || null,
-      status: input.status || "ACTIVE", priority: input.priority || "NORMAL", startDate: input.startDate, deadline: input.deadline, progress: input.progress || 0, nextDelivery: input.nextDelivery?.trim() || null, createdById: actor.memberId,
+      primaryDirectorateId: input.primaryDirectorateId, managerId: input.managerId || null, responsibleMemberId: input.managerId || null,
+      status: input.status || "ACTIVE", startDate: input.startDate, deadline: input.deadline, progress: input.progress || 0, nextDelivery: input.nextDelivery?.trim() || null, createdById: actor.memberId,
       directorates: { create: relations.directorateIds.map((directorateId) => ({ directorateId })) },
       teamMembers: { create: [...new Set(input.teamMemberIds || [])].map((memberId) => ({ memberId })) },
     } });
@@ -85,8 +81,6 @@ export async function createProject(client: PrismaClient, actor: Actor, input: P
 }
 
 export async function updateProject(client: PrismaClient, actor: Actor, id: string, input: Partial<ProjectInput> & { version: number; action?: "archive" | "reopen" | "cancel" }) {
-  if (input.status && !PROJECT_STATUSES.includes(input.status)) throw new HubApiError("Status de projeto inválido.", 400);
-  if (input.priority && !PROJECT_PRIORITIES.includes(input.priority)) throw new HubApiError("Prioridade de projeto inválida.", 400);
   return hubCoreTransaction(client, async (tx) => {
     const current = await tx.hubProject.findFirst({ where: { id, organizationId: actor.organizationId }, include: { directorates: true } });
     if (!current) throw new HubApiError("Projeto não encontrado.", 404);
@@ -97,9 +91,9 @@ export async function updateProject(client: PrismaClient, actor: Actor, id: stri
     const relations = await scopedRelations(tx, actor, { primaryDirectorateId, directorateIds: input.directorateIds ?? current.directorates.map((link) => link.directorateId), managerId: input.managerId, teamMemberIds: input.teamMemberIds });
     const updated = await tx.hubProject.updateMany({ where: { id, organizationId: actor.organizationId, version: input.version }, data: {
       ...(input.name?.trim() ? { title: input.name.trim() } : {}), ...(input.client !== undefined ? { client: input.client?.trim() || null } : {}), ...(input.description !== undefined ? { description: input.description?.trim() || null } : {}),
-      primaryDirectorateId, ...(input.managerId !== undefined ? { managerId: input.managerId || null, responsibleMemberId: input.managerId || null } : {}), ...(input.status ? { status: input.status } : {}), ...(input.priority ? { priority: input.priority } : {}),
+      primaryDirectorateId, ...(input.managerId !== undefined ? { managerId: input.managerId || null, responsibleMemberId: input.managerId || null } : {}), ...(input.status ? { status: input.status } : {}),
       ...(input.startDate !== undefined ? { startDate: input.startDate } : {}), ...(input.deadline !== undefined ? { deadline: input.deadline } : {}), ...(input.progress !== undefined ? { progress: input.progress } : {}), ...(input.nextDelivery !== undefined ? { nextDelivery: input.nextDelivery?.trim() || null } : {}),
-      ...(input.action === "archive" ? { archivedAt: new Date(), status: "ARCHIVED" } : {}), ...(input.action === "reopen" ? { archivedAt: null, status: "ACTIVE", cancelledAt: null, cancelledReason: null } : {}), ...(input.action === "cancel" ? { status: "CANCELLED", cancelledAt: new Date() } : {}), version: { increment: 1 },
+      ...(input.action === "archive" ? { archivedAt: new Date() } : {}), ...(input.action === "reopen" ? { archivedAt: null, status: "ACTIVE", cancelledAt: null, cancelledReason: null } : {}), ...(input.action === "cancel" ? { status: "CANCELLED", cancelledAt: new Date() } : {}), version: { increment: 1 },
     } });
     if (!updated.count) throw new HubApiError("O projeto foi alterado por outra pessoa. Atualize a página.", 409);
     if (input.directorateIds || input.primaryDirectorateId) {

@@ -31,7 +31,7 @@ export async function api(url: string, init?: RequestInit) {
   const data = await response.json();
   if (!response.ok)
     throw new ClientApiError(
-      (typeof data.error === "string" ? data.error : data.error?.message) || "Não foi possível concluir a operação.",
+      data.error || "Não foi possível concluir a operação.",
       data,
     );
   return data;
@@ -152,7 +152,7 @@ export function AvailabilityPage() {
       reason: string | null;
     }>;
     timezone: string;
-  }>("/api/availability");
+  }>("/api/hub/availability");
   const [rules, setRules] = useState<Rule[]>([]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -179,7 +179,7 @@ export function AvailabilityPage() {
   async function save() {
     try {
       setError("");
-      await api("/api/availability", {
+      await api("/api/hub/availability", {
         method: "PUT",
         body: JSON.stringify({ rules }),
       });
@@ -193,7 +193,7 @@ export function AvailabilityPage() {
     event.preventDefault();
     try {
       setError("");
-      await api("/api/availability/exceptions", {
+      await api("/api/hub/availability/exceptions", {
         method: "POST",
         body: JSON.stringify({
           date: exception.date,
@@ -408,7 +408,7 @@ export function AvailabilityPage() {
                 type="button"
                 className="text-sm underline"
                 onClick={async () => {
-                  await api(`/api/availability/exceptions/${item.id}`, {
+                  await api(`/api/hub/availability/exceptions/${item.id}`, {
                     method: "DELETE",
                   });
                   await load();
@@ -445,7 +445,7 @@ function MeetingRows({ meetings }: { meetings: Meeting[] }) {
       {meetings.map((meeting) => (
         <Link
           key={meeting.id}
-          href={`/reunioes/${meeting.id}`}
+          href={`/hub/reunioes/${meeting.id}`}
           className="grid gap-2 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black sm:grid-cols-[1fr_auto]"
         >
           <div>
@@ -478,7 +478,7 @@ export function MeetingsPage() {
     meetings: Meeting[];
     capabilities: { canCreateMeeting: boolean };
   }>(
-    `/api/meetings?filter=${filter}`,
+    `/api/hub/meetings?filter=${filter}`,
   );
   return (
     <div className={hubUi.page}>
@@ -486,7 +486,7 @@ export function MeetingsPage() {
         title="Reuniões"
         description="Acompanhe convites, encontros passados e reuniões da sua organização."
         action={data?.capabilities.canCreateMeeting ? (
-          <Link href="/reunioes/nova" className={hubUi.primaryButton}>
+          <Link href="/hub/reunioes/nova" className={hubUi.primaryButton}>
             <Plus className="h-4 w-4" />
             Nova reunião
           </Link>
@@ -550,7 +550,7 @@ type Options = {
   capabilities: { canCreateMeeting: boolean };
 };
 export function NewMeetingPage() {
-  const { data: options } = useLoad<Options>("/api/collaboration/options");
+  const { data: options } = useLoad<Options>("/api/hub/collaboration/options");
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -578,7 +578,7 @@ export function NewMeetingPage() {
     event.preventDefault();
     try {
       setError("");
-      const result = await api("/api/meetings", {
+      const result = await api("/api/hub/meetings", {
         method: "POST",
         body: JSON.stringify({
           ...form,
@@ -589,7 +589,7 @@ export function NewMeetingPage() {
           overrideReason,
         }),
       });
-      location.href = `/reunioes/${result.meeting.id}`;
+      location.href = `/hub/reunioes/${result.meeting.id}`;
     } catch (reason) {
       if (
         reason instanceof ClientApiError &&
@@ -783,8 +783,8 @@ export function MeetingDetailPage({ id }: { id: string }) {
       }>;
       sourceTasks: Array<{ id: string; title: string; boardId: string }>;
     };
-  }>(`/api/meetings/${id}`);
-  const { data: options } = useLoad<Options>("/api/collaboration/options");
+  }>(`/api/hub/meetings/${id}`);
+  const { data: options } = useLoad<Options>("/api/hub/collaboration/options");
   const [minutes, setMinutes] = useState("");
   const [decision, setDecision] = useState("");
   const [actionTitle, setActionTitle] = useState("");
@@ -800,7 +800,7 @@ export function MeetingDetailPage({ id }: { id: string }) {
     );
   const meeting = data.meeting;
   async function respond(status: string) {
-    await api(`/api/meetings/${id}/respond`, {
+    await api(`/api/hub/meetings/${id}/respond`, {
       method: "POST",
       body: JSON.stringify({ status }),
     });
@@ -812,7 +812,7 @@ export function MeetingDetailPage({ id }: { id: string }) {
         title={meeting.title}
         description={`${new Date(meeting.startAt).toLocaleString("pt-BR", { timeZone: meeting.timezone })} · ${statusLabel[meeting.status] || meeting.status}`}
         action={
-          <Link href="/reunioes" className={hubUi.secondaryButton}>
+          <Link href="/hub/reunioes" className={hubUi.secondaryButton}>
             <ArrowLeft className="h-4 w-4" />
             Voltar
           </Link>
@@ -881,7 +881,7 @@ export function MeetingDetailPage({ id }: { id: string }) {
         />
         <button
           onClick={async () => {
-            await api(`/api/meetings/${id}`, {
+            await api(`/api/hub/meetings/${id}`, {
               method: "PATCH",
               body: JSON.stringify({ minutes }),
             });
@@ -912,7 +912,7 @@ export function MeetingDetailPage({ id }: { id: string }) {
           className="mt-4 flex gap-2"
           onSubmit={async (e) => {
             e.preventDefault();
-            await api(`/api/meetings/${id}/decisions`, {
+            await api(`/api/hub/meetings/${id}/decisions`, {
               method: "POST",
               body: JSON.stringify({ title: decision }),
             });
@@ -937,7 +937,7 @@ export function MeetingDetailPage({ id }: { id: string }) {
             <Link
               className="mt-2 block text-sm underline"
               key={task.id}
-              href={`/tarefas/${task.id}`}
+              href={`/hub/tarefas/${task.id}`}
             >
               {task.title}
             </Link>
@@ -958,7 +958,7 @@ export function MeetingDetailPage({ id }: { id: string }) {
                 (item) => item.id === actionBoardId,
               );
               if (!board?.columns[0]) return;
-              await api("/api/tasks", {
+              await api("/api/hub/tasks", {
                 method: "POST",
                 body: JSON.stringify({
                   boardId: board.id,
@@ -1013,7 +1013,7 @@ export function MeetingDetailPage({ id }: { id: string }) {
 export function AgendaPage() {
   const [view, setView] = useState("list");
   const { data: meetings, error } = useLoad<{ meetings: Meeting[] }>(
-    "/api/meetings?filter=upcoming",
+    "/api/hub/meetings?filter=upcoming",
   );
   const { data: tasks } = useLoad<{
     tasks: Array<{
@@ -1022,7 +1022,7 @@ export function AgendaPage() {
       dueAt: string | null;
       board: { id: string; name: string };
     }>;
-  }>("/api/tasks?mine=true");
+  }>("/api/hub/tasks?mine=true");
   return (
     <div className={hubUi.page}>
       <Header
@@ -1079,7 +1079,7 @@ export function AgendaPage() {
             .map((task) => (
               <Link
                 key={task.id}
-                href={`/tarefas/${task.id}`}
+                href={`/hub/tarefas/${task.id}`}
                 className="flex justify-between gap-3 py-3 text-sm"
               >
                 <span>{task.title}</span>
@@ -1117,12 +1117,12 @@ type Board = {
   }>;
 };
 export function BoardsPage() {
-  const { data, error, load } = useLoad<{ boards: Board[] }>("/api/boards");
-  const { data: options } = useLoad<Options>("/api/collaboration/options");
+  const { data, error, load } = useLoad<{ boards: Board[] }>("/api/hub/boards");
+  const { data: options } = useLoad<Options>("/api/hub/collaboration/options");
   const [name, setName] = useState("");
   async function create(event: React.FormEvent) {
     event.preventDefault();
-    await api("/api/boards", {
+    await api("/api/hub/boards", {
       method: "POST",
       body: JSON.stringify({ name, scope: "ORGANIZATION" }),
     });
@@ -1158,7 +1158,7 @@ export function BoardsPage() {
         {data?.boards.map((board) => (
           <Link
             key={board.id}
-            href={`/inicio/quadros/${board.id}`}
+            href={`/hub/quadros/${board.id}`}
             className={`${hubUi.panel} p-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black`}
           >
             <h2 className="font-semibold break-words">{board.name}</h2>
@@ -1180,7 +1180,7 @@ export function BoardsPage() {
 
 export function BoardDetailPage({ id }: { id: string }) {
   const { data, error, load } = useLoad<{ board: Board }>(
-    `/api/boards/${id}`,
+    `/api/hub/boards/${id}`,
   );
   const [title, setTitle] = useState("");
   if (!data)
@@ -1194,7 +1194,7 @@ export function BoardDetailPage({ id }: { id: string }) {
   async function create(event: React.FormEvent) {
     event.preventDefault();
     if (!columns[0]) return;
-    await api("/api/tasks", {
+    await api("/api/hub/tasks", {
       method: "POST",
       body: JSON.stringify({
         boardId: id,
@@ -1209,7 +1209,7 @@ export function BoardDetailPage({ id }: { id: string }) {
     await load();
   }
   async function move(task: { id: string; version: number }, columnId: string) {
-    await api(`/api/tasks/${task.id}/move`, {
+    await api(`/api/hub/tasks/${task.id}/move`, {
       method: "POST",
       body: JSON.stringify({ columnId, version: task.version }),
     });
@@ -1221,7 +1221,7 @@ export function BoardDetailPage({ id }: { id: string }) {
         title={board.name}
         description={board.description || "Quadro de trabalho"}
         action={
-          <Link href="/inicio/quadros" className={hubUi.secondaryButton}>
+          <Link href="/hub/quadros" className={hubUi.secondaryButton}>
             <ArrowLeft className="h-4 w-4" />
             Quadros
           </Link>
@@ -1330,7 +1330,7 @@ function TaskCard({
   return (
     <article className="rounded-xl border border-zinc-200 bg-white p-3">
       <Link
-        href={`/tarefas/${task.id}`}
+        href={`/hub/tarefas/${task.id}`}
         className="font-medium break-words focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black"
       >
         {task.title}
@@ -1401,7 +1401,7 @@ type TaskDetail = {
 
 export function TaskDetailPage({ id }: { id: string }) {
   const { data, error, load } = useLoad<{ task: TaskDetail }>(
-    `/api/tasks/${id}`,
+    `/api/hub/tasks/${id}`,
   );
   const [comment, setComment] = useState("");
   if (!data)
@@ -1418,7 +1418,7 @@ export function TaskDetailPage({ id }: { id: string }) {
         description={`${task.board.name} · ${task.column.name}`}
         action={
           <Link
-            href={`/inicio/quadros/${task.board.id}`}
+            href={`/hub/quadros/${task.board.id}`}
             className={hubUi.secondaryButton}
           >
             <ArrowLeft className="h-4 w-4" />
@@ -1457,7 +1457,7 @@ export function TaskDetailPage({ id }: { id: string }) {
           </dl>
           {task.sourceMeeting ? (
             <Link
-              href={`/reunioes/${task.sourceMeeting.id}`}
+              href={`/hub/reunioes/${task.sourceMeeting.id}`}
               className="mt-5 block rounded-xl border border-zinc-200 p-3 text-sm underline"
             >
               Reunião de origem: {task.sourceMeeting.title}
@@ -1510,7 +1510,7 @@ export function TaskDetailPage({ id }: { id: string }) {
           className="mt-4 flex flex-col gap-2 sm:flex-row"
           onSubmit={async (event) => {
             event.preventDefault();
-            await api(`/api/tasks/${id}/comments`, {
+            await api(`/api/hub/tasks/${id}/comments`, {
               method: "POST",
               body: JSON.stringify({ body: comment }),
             });
@@ -1546,7 +1546,7 @@ export function MyTasksPage() {
       priority: string;
       board: { id: string; name: string };
     }>;
-  }>("/api/tasks?mine=true");
+  }>("/api/hub/tasks?mine=true");
   const groups = useMemo(() => {
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
@@ -1602,7 +1602,7 @@ export function MyTasksPage() {
                 group.items.map((task) => (
                   <Link
                     key={task.id}
-                    href={`/tarefas/${task.id}`}
+                    href={`/hub/tarefas/${task.id}`}
                     className="flex justify-between gap-3 py-3 text-sm"
                   >
                     <span className="break-words font-medium">

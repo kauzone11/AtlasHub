@@ -152,7 +152,7 @@ export async function updateMeetingAudience(
     const directorateMembers = input.organizationWide
       ? await tx.hubMember.findMany({
           where: { organizationId: actor.organizationId, status: "ACTIVE" },
-          select: { id: true, directorateId: true },
+          select: { id: true },
         })
       : directorateIds.length
         ? await tx.hubMember.findMany({
@@ -161,7 +161,7 @@ export async function updateMeetingAudience(
               status: "ACTIVE",
               directorateId: { in: directorateIds },
             },
-            select: { id: true, directorateId: true },
+            select: { id: true },
           })
         : [];
     const finalIds = [
@@ -198,15 +198,6 @@ export async function updateMeetingAudience(
         })),
         skipDuplicates: true,
       });
-    await tx.hubMeetingParticipantSource.deleteMany({ where: { meetingId: id } });
-    await tx.hubMeetingParticipantSource.createMany({
-      data: [
-        { meetingId: id, memberId: actor.memberId, sourceType: "CREATOR", directorateId: null },
-        ...participantIds.map((memberId) => ({ meetingId: id, memberId, sourceType: "DIRECT" as const, directorateId: null })),
-        ...directorateMembers.map((member) => ({ meetingId: id, memberId: member.id, sourceType: input.organizationWide ? "ORGANIZATION" as const : "DIRECTORATE" as const, directorateId: input.organizationWide ? null : member.directorateId })),
-      ],
-      skipDuplicates: true,
-    });
     await tx.hubMeetingExternalGuest.deleteMany({ where: { meetingId: id } });
     if (input.externalGuests.length)
       await tx.hubMeetingExternalGuest.createMany({
@@ -237,7 +228,7 @@ export async function updateMeetingAudience(
             type: "MEETING_INVITED" as const,
             title: "Convite para reuniao",
             body: meeting.title,
-            href: `/reunioes/${id}`,
+            href: `/hub/reunioes/${id}`,
             entityType: "MEETING",
             entityId: id,
             idempotencyKey: `meeting:${id}:invited:v${input.version + 1}:${recipientMemberId}`,

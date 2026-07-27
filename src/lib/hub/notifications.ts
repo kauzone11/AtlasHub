@@ -2,10 +2,19 @@ import type { Prisma } from "@prisma/client";
 import { hasHubPermission, type HubPermission } from "@/lib/hub/permissions";
 
 export const HUB_NOTIFICATION_TYPES = [
-  "WELCOME", "MEMBER_UPDATED", "PROJECT_APPROVED", "PROJECT_CANCELLED",
+  "WELCOME", "MEMBER_UPDATED", "WALLET_REQUEST_CREATED", "WALLET_REQUEST_APPROVED",
+  "WALLET_REQUEST_REJECTED", "WALLET_ADJUSTED", "WALLET_TRANSACTION_REVERSED",
+  "PROJECT_APPROVED", "PROJECT_CANCELLED",
   "MEETING_INVITED", "MEETING_UPDATED", "MEETING_CANCELLED", "MEETING_RESPONSE",
   "MEETING_COMPLETED", "MEETING_DECISION_RECORDED", "MEETING_PARTICIPANT_REMOVED", "TASK_ASSIGNED", "TASK_UPDATED",
   "TASK_COMMENTED", "TASK_DUE_CHANGED", "TASK_COMPLETED",
+  "FINANCIAL_ENTRY_SUBMITTED", "FINANCIAL_ENTRY_APPROVED", "FINANCIAL_ENTRY_REJECTED",
+  "FINANCIAL_SETTLEMENT_RECORDED", "FINANCIAL_SETTLEMENT_REVERSED", "REIMBURSEMENT_SUBMITTED",
+  "REIMBURSEMENT_APPROVED", "REIMBURSEMENT_REJECTED", "REIMBURSEMENT_PAID", "ONBOARDING_ASSIGNED",
+  "ONBOARDING_ITEM_COMPLETED", "DEVELOPMENT_GOAL_ASSIGNED", "DEVELOPMENT_GOAL_UPDATED",
+  "FEEDBACK_RECEIVED", "EVALUATION_ASSIGNED", "EVALUATION_COMPLETED", "RECOGNITION_RECEIVED",
+  "STRATEGY_OBJECTIVE_ASSIGNED", "KEY_RESULT_UPDATE_REQUIRED", "STRATEGIC_RISK_REVIEW_DUE", "STRATEGIC_REVIEW_SCHEDULED",
+  "OPPORTUNITY_ASSIGNED", "OPPORTUNITY_STAGE_CHANGED", "PROPOSAL_REVIEW_REQUESTED", "PROPOSAL_APPROVED", "PROPOSAL_SENT", "PROPOSAL_ACCEPTED", "PROPOSAL_EXPIRING",
 ] as const;
 export type HubNotificationType = (typeof HUB_NOTIFICATION_TYPES)[number];
 
@@ -26,9 +35,8 @@ function safeText(value: string, max: number) {
 }
 
 export function assertHubNotificationHref(href: string) {
-  const allowedPrefixes = ["/inicio", "/diretorias", "/projetos", "/tarefas", "/agenda", "/reunioes", "/financas", "/ajustes", "/minha-conta"];
-  if (!allowedPrefixes.some((prefix) => href === prefix || href.startsWith(`${prefix}/`) || href.startsWith(`${prefix}?`)) || href.startsWith("//") || /[\r\n]/.test(href)) {
-    throw new Error("Links de notificação devem ser internos ao Open Impact EJ.");
+  if (!href.startsWith("/hub") || href.startsWith("//") || /[\r\n]/.test(href)) {
+    throw new Error("Links de notificação devem ser internos ao Atlas Hub.");
   }
   return href;
 }

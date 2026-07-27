@@ -28,15 +28,11 @@ type Entry = {
   description: string;
   competenceDate: string;
   totalCents: number;
-  version: number;
   settledCents: number;
-  categoryId: string;
-  supportingMetadata: { reference?: string } | null;
   directorateId: string | null;
   projectId: string | null;
   capabilities: { canEdit: boolean; canCancel: boolean };
 };
-type Category = { id: string; name: string; type: "INCOME" | "EXPENSE" };
 const money = (value: number, currency = "BRL") =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(
     value / 100,
@@ -62,9 +58,8 @@ export function HubFinancesCore() {
       await coreApi<{
         balanceCents: number;
         currency: string;
-        categories: Category[];
         entries: Entry[];
-      }>(`/api/finances?${query}`),
+      }>(`/api/hub/finances?${query}`),
     [query],
   );
   const canCreate = options?.permissions.includes("finance:create");
@@ -177,7 +172,7 @@ export function HubFinancesCore() {
             <div>
               <p className="font-medium">{entry.description}</p>
               <p className="text-xs text-zinc-500">
-                {state.data?.categories.find((category) => category.id === entry.categoryId)?.name || "Sem categoria"} · Liquidado: {money(entry.settledCents)}
+                Liquidado: {money(entry.settledCents)}
               </p>
             </div>
             <time className="text-sm text-zinc-600">
@@ -209,9 +204,9 @@ export function HubFinancesCore() {
                     const reason = await requestHubText({ title: "Cancelar lançamento", label: "Motivo do cancelamento", required: true, multiline: true, confirmLabel: "Confirmar cancelamento", description: `“${entry.description}” permanecerá no histórico após o cancelamento.` });
                     if (!reason) return;
                     try {
-                      await coreApi(`/api/finances/${entry.id}`, {
+                      await coreApi(`/api/hub/finances/${entry.id}`, {
                         method: "PATCH",
-                        body: JSON.stringify({ cancelReason: reason, version: entry.version }),
+                        body: JSON.stringify({ cancelReason: reason }),
                       });
                       await state.refresh();
                     } catch (reasonValue) {
@@ -242,7 +237,6 @@ export function HubFinancesCore() {
       >
         <EntryForm
           direction={open || "RECEIVABLE"}
-          categories={state.data?.categories || []}
           options={options}
           onSaved={async () => {
             setOpen(null);
@@ -260,7 +254,6 @@ export function HubFinancesCore() {
           key={editing?.id}
           entry={editing || undefined}
           direction={editing?.direction || "RECEIVABLE"}
-          categories={state.data?.categories || []}
           options={options}
           onSaved={async () => {
             setEditing(null);
@@ -276,14 +269,12 @@ function FinanceSummary({ direction, label, value, note }: { direction: "income"
 function EntryForm({
   entry,
   direction,
-  categories,
   options,
   onSaved,
   onError,
 }: {
   entry?: Entry;
   direction: "RECEIVABLE" | "PAYABLE";
-  categories: Category[];
   options: ReturnType<typeof useCoreOptions>;
   onSaved: () => Promise<void>;
   onError: (value: string) => void;
@@ -294,31 +285,26 @@ function EntryForm({
     amount: entry ? String(entry.totalCents / 100).replace(".", ",") : "",
     competenceDate: entry?.competenceDate.slice(0, 10) || today,
     dueDate: today,
-    categoryId: entry?.categoryId || "",
-    supportingReference: entry?.supportingMetadata?.reference || "",
     directorateId: entry?.directorateId || "",
     projectId: entry?.projectId || "",
   });
   const [entryDirection, setEntryDirection] = useState(direction);
-  const availableCategories = categories.filter((category) => category.type === (entryDirection === "RECEIVABLE" ? "INCOME" : "EXPENSE"));
   async function save(event: React.FormEvent) {
     event.preventDefault();
     const cents = Math.round(Number(form.amount.replace(",", ".")) * 100);
     try {
       await coreApi(
-        entry ? `/api/finances/${entry.id}` : "/api/finances",
+        entry ? `/api/hub/finances/${entry.id}` : "/api/hub/finances",
         {
           method: entry ? "PATCH" : "POST",
           headers: entry
             ? undefined
             : { "Idempotency-Key": crypto.randomUUID() },
           body: JSON.stringify({
-            ...(entry ? { version: entry.version } : { direction: entryDirection }),
+            ...(entry ? {} : { direction: entryDirection }),
             description: form.description,
             totalCents: cents,
             competenceDate: form.competenceDate,
-            categoryId: form.categoryId || null,
-            supportingReference: form.supportingReference || null,
             ...(entry ? {} : { dueDate: form.dueDate }),
             directorateId: form.directorateId || null,
             projectId: form.projectId || null,
@@ -334,7 +320,7 @@ function EntryForm({
   }
   return (
     <form onSubmit={save} className="space-y-4">
-      {!entry ? <label className="block text-sm font-medium">Tipo<select className={`${input} mt-1`} value={entryDirection} onChange={(event) => { const next = event.target.value as "RECEIVABLE" | "PAYABLE"; setEntryDirection(next); setForm({ ...form, categoryId: "" }); }}><option value="RECEIVABLE">Receita</option><option value="PAYABLE">Despesa</option></select></label> : null}
+      {!entry ? <label className="block text-sm font-medium">Tipo<select className={`${input} mt-1`} value={entryDirection} onChange={(event) => setEntryDirection(event.target.value as "RECEIVABLE" | "PAYABLE")}><option value="RECEIVABLE">Receita</option><option value="PAYABLE">Despesa</option></select></label> : null}
       <label className="block text-sm font-medium">
         Descrição
         <input
@@ -345,7 +331,6 @@ function EntryForm({
         />
       </label>
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block text-sm font-medium">Categoria<select className={`${input} mt-1`} value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}><option value="">Categoria padrão</option>{availableCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
         <label className="block text-sm font-medium">
           Valor (R$)
           <input
@@ -410,7 +395,6 @@ function EntryForm({
           </select>
         </label>
       </div>
-      <label className="block text-sm font-medium">Referência ou observação de apoio<input className={`${input} mt-1`} value={form.supportingReference} onChange={(e) => setForm({ ...form, supportingReference: e.target.value })} placeholder="Ex.: nota fiscal, contrato ou contexto" /></label>
       <p className="text-xs text-zinc-500">
         O lançamento será enviado como pendente de aprovação.
       </p>

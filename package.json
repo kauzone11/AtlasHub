@@ -1,16 +1,16 @@
 {
-  "name": "open-impact-ej",
+  "name": "atlas-hub",
   "version": "1.0.0",
-  "private": false,
-  "description": "Plataforma open source de gestão integrada para Empresas Juniores.",
+  "private": true,
+  "description": "Atlas Hub — plataforma de gestão integrada para organizações.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kauzone11/open-impact-ej.git"
+    "url": "https://github.com/kauzone11/AtlasHub.git"
   },
   "bugs": {
-    "url": "https://github.com/kauzone11/open-impact-ej/issues"
+    "url": "https://github.com/kauzone11/AtlasHub/issues"
   },
-  "homepage": "https://github.com/kauzone11/open-impact-ej#readme",
+  "homepage": "https://github.com/kauzone11/AtlasHub#readme",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -21,42 +21,43 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:prod": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "test": "npm run test:unit && npm run test:integration",
-    "test:unit": "tsx --test src/**/*.unit.test.ts",
-    "test:integration": "tsx --test --test-concurrency=1 src/**/*.integration.test.ts",
-    "test:e2e": "playwright test",
-    "organization:bootstrap": "tsx scripts/bootstrap-organization.ts",
-    "seed:demo": "tsx scripts/seed-demo.ts",
-    "test:migrations": "tsx scripts/test-migrations.ts"
+    "hub:test": "tsx --test --test-concurrency=1 src/lib/hub/**/*.test.ts tests/atlas-hub-identity.test.ts",
+    "hub:collaboration:preflight": "tsx scripts/preflight-hub-collaboration.ts",
+    "hub:operations:preflight": "tsx scripts/preflight-hub-operations.ts",
+    "hub:strategy-growth:preflight": "tsx scripts/preflight-hub-strategy-growth.ts",
+    "hub:accounts:preflight": "tsx scripts/preflight-hub-accounts.ts",
+    "hub:seed": "tsx scripts/atlas-hub-seed.ts",
+    "hub:organization:create": "tsx scripts/create-atlas-hub-organization.ts",
+    "hub:source:sync": "node scripts/sync-atlas-hub-source.mjs",
+    "hub:source:verify": "node scripts/verify-atlas-hub-source-sync.mjs"
   },
   "dependencies": {
-    "@prisma/client": "6.19.3",
-    "bcryptjs": "^3.0.2",
-    "clsx": "^2.1.1",
-    "date-fns": "^4.1.0",
+    "@prisma/client": "^6.2.1",
+    "bcryptjs": "^2.4.3",
+    "date-fns": "4.4.0",
     "lucide-react": "^0.511.0",
-    "next": "16.2.11",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "sharp": "0.35.3",
+    "next": "15.5.19",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
     "tailwind-merge": "^3.3.0",
-    "zod": "^4.4.3"
+    "zod": "^3.25.67"
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.0",
-    "@tailwindcss/postcss": "^4.1.18",
-    "@types/node": "^22.19.21",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "eslint": "^9.39.1",
-    "eslint-config-next": "16.2.11",
-    "prisma": "6.19.3",
-    "tailwindcss": "^4.1.18",
-    "tsx": "^4.22.4",
-    "typescript": "^5.9.3"
+    "@eslint/eslintrc": "^3.3.1",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "22.19.21",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9.29.0",
+    "eslint-config-next": "15.5.19",
+    "postcss": "8.5.15",
+    "prisma": "^6.2.1",
+    "tailwindcss": "^3.4.17",
+    "tsx": "4.22.4",
+    "typescript": "^5.8.3"
   },
   "overrides": {
-    "postcss": "^8.5.10",
-    "sharp": "$sharp"
+    "postcss": "8.5.15"
   }
 }

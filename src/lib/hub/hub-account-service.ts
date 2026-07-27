@@ -52,7 +52,7 @@ export async function authenticateHubAccount(prisma: PrismaClient, emailInput: s
   if (!account || !passwordValid || account.status !== "ACTIVE") throw new HubAccountServiceError(INVALID_LOGIN, 401);
 
   const memberships = account.memberships.filter((membership) => membership.status === "ACTIVE" && membership.organization.isActive);
-  if (!memberships.length) throw new HubAccountServiceError("Não há acesso ativo a uma organização para esta conta.", 403);
+  if (!memberships.length) throw new HubAccountServiceError("Nao ha acesso ativo a um Hub para esta conta.", 403);
 
   const selected = memberships.find((membership) => membership.organizationId === account.lastOrganizationId)
     || memberships.find((membership) => membership.isPrimary)
