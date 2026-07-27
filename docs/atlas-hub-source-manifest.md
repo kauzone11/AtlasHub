@@ -47,6 +47,8 @@ dependência de runtime.
 - `src/app/api/health/route.ts`: health check mínimo da aplicação e banco.
 - `scripts/sync-atlas-hub-source.mjs`: sincronização dos quatro namespaces.
 - `scripts/verify-atlas-hub-source-sync.mjs`: verificação de hashes e limites.
+- `scripts/preflight-hub-operations.ts`: reconhece a baseline standalone como
+  histórico íntegro, além da migration histórica da aplicação integrada.
 
 ## Caminhos deliberadamente excluídos
 
