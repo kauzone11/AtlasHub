@@ -909,6 +909,8 @@ test("40 legitimate response transitions each notify organizer", async () => {
     endAt: new Date("2026-08-03T13:00:00.000Z"),
     timezone: "America/Fortaleza",
     participantIds: [memberA.memberId],
+    confirmConflicts: true,
+    overrideReason: "Fixture de transições de resposta",
     idempotencyKey: `response-transitions-${suffix}`,
   });
   for (const [index, status] of (

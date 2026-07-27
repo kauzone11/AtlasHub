@@ -14,7 +14,9 @@
     "src/components/hub/HubAgendaCore.tsx",
     "src/components/hub/HubNotificationLink.tsx",
     "src/app/api/hub/finance/reports/route.ts",
-    "src/lib/hub/hub.routes.test.ts"
+    "src/lib/hub/hub.routes.test.ts",
+    "src/lib/hub/collaboration.integration.test.ts",
+    "src/lib/hub/settings.integration.test.ts"
   ],
   "sharedDependencies": [
     "src/app/globals.css",

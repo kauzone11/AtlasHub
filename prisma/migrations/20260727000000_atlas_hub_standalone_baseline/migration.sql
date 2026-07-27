@@ -2786,3 +2786,23 @@ ALTER TABLE "HubPartnership" ADD CONSTRAINT "HubPartnership_growthOrganizationId
 
 -- AddForeignKey
 ALTER TABLE "HubStrategicGrowthMutation" ADD CONSTRAINT "HubStrategicGrowthMutation_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "EconomikWorkspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Standalone baseline integrity indexes preserved from the Hub hardening migrations.
+CREATE UNIQUE INDEX "HubAvailabilityException_full_day_key"
+  ON "HubAvailabilityException" ("organizationId", "memberId", "date", "type")
+  WHERE "startMinute" IS NULL AND "endMinute" IS NULL;
+CREATE UNIQUE INDEX "HubAvailabilityException_ranged_key"
+  ON "HubAvailabilityException" ("organizationId", "memberId", "date", "type", "startMinute", "endMinute")
+  WHERE "startMinute" IS NOT NULL AND "endMinute" IS NOT NULL;
+ALTER TABLE "HubAvailabilityRule" ADD CONSTRAINT "HubAvailabilityRule_minutes_check"
+  CHECK ("startMinute" BETWEEN 0 AND 1439 AND "endMinute" BETWEEN 1 AND 1440 AND "endMinute" > "startMinute");
+ALTER TABLE "HubAvailabilityException" ADD CONSTRAINT "HubAvailabilityException_minutes_check" CHECK (
+  ("startMinute" IS NULL AND "endMinute" IS NULL)
+  OR ("startMinute" BETWEEN 0 AND 1439 AND "endMinute" BETWEEN 1 AND 1440 AND "endMinute" > "startMinute")
+);
+CREATE UNIQUE INDEX "HubMemberInvitation_pending_email_key"
+  ON "HubMemberInvitation" ("organizationId", "normalizedEmail") WHERE "status" = 'PENDING';
+CREATE UNIQUE INDEX "HubMemberInvitation_pending_president_key"
+  ON "HubMemberInvitation" ("organizationId") WHERE "status" = 'PENDING' AND "organizationPosition" = 'PRESIDENT';
+CREATE UNIQUE INDEX "EconomikMember_one_active_president_key"
+  ON "EconomikMember" ("workspaceId") WHERE "organizationPosition" = 'PRESIDENT' AND "status" = 'ACTIVE';

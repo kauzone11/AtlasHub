@@ -124,22 +124,22 @@ test("início renderiza semântica organizacional e configurações atualizam o 
 });
 
 test("migration de notificações troca somente a unicidade para o escopo da organização", () => {
-  const sql = readFileSync(resolve(process.cwd(), "prisma/migrations/20260714010000_scope_hub_notification_idempotency/migration.sql"), "utf8");
-  assert.match(sql, /DROP INDEX "HubNotification_idempotencyKey_key"/);
+  const sql = readFileSync(resolve(process.cwd(), "prisma/migrations/20260727000000_atlas_hub_standalone_baseline/migration.sql"), "utf8");
   assert.match(sql, /CREATE UNIQUE INDEX "HubNotification_organizationId_idempotencyKey_key"/);
   assert.match(sql, /\("organizationId", "idempotencyKey"\)/);
-  assert.doesNotMatch(sql, /DELETE|TRUNCATE|DROP TABLE|Wallet|Financial/i);
+  assert.match(sql, /HubAvailabilityException_full_day_key/);
+  assert.doesNotMatch(sql, /DELETE|TRUNCATE|DROP TABLE/i);
 });
 
 test("workflow do Atlas Hub executa a matriz completa com PostgreSQL sem permitir skip", () => {
-  const workflow = readFileSync(resolve(process.cwd(), ".github/workflows/atlas-hub.yml"), "utf8");
+  const workflow = readFileSync(resolve(process.cwd(), ".github/workflows/hub-ci.yml"), "utf8");
   assert.match(workflow, /pull_request:/);
   assert.match(workflow, /push:[\s\S]*branches: \[main\]/);
-  assert.match(workflow, /postgres:18-alpine/);
+  assert.match(workflow, /postgres:16-alpine/);
   assert.match(workflow, /ATLAS_HUB_TEST_DATABASE_URL:/);
   for (const command of [
-    "npm ci", "npx prisma format", "npx prisma validate", "npx prisma generate", "npm run hub:accounts:preflight", "npm run hub:accounts:migration-test", "npm run db:migrate:prod",
-    "npm run hub:test", "npm run " + "stu" + "dies:test", "npm run " + "method" + "ologies:test", "npm run " + "eng" + "ine:test", "npm run build",
+    "npm ci", "npx prisma format", "npx prisma validate", "npx prisma generate", "npm run hub:accounts:preflight", "npm run db:migrate:prod",
+    "npm run hub:test", "npm run build",
   ]) assert.ok(workflow.includes(command), `workflow precisa executar ${command}`);
 });
 
@@ -178,24 +178,15 @@ test("logout limpa os cookies canônico e legado", () => {
   assert.match(source, /cookieStore\.set\(LEGACY_HUB_SESSION_COOKIE, ""/);
 });
 
-test("rotas web legadas redirecionam ao Hub sem loop", async () => {
+test("a composição standalone não cria redirecionamentos legados nem loop", async () => {
   const redirects = await nextConfig.redirects?.();
-  assert.deepEqual(redirects, [
-    { source: "/economik", destination: "/hub", permanent: false },
-    { source: "/economik/login", destination: "/hub/login?organization=economik", permanent: false },
-    { source: "/economik/:path*", destination: "/hub/:path*", permanent: false },
-  ]);
-  assert.equal(redirects?.some((item) => item.source.startsWith("/hub")), false);
-  assert.equal(redirects?.some((item) => item.source === item.destination), false);
+  assert.equal(redirects, undefined);
 });
 
-test("API legada preserva o caminho por rewrite sem handlers duplicados", async () => {
+test("a API standalone não cria rewrites legados nem handlers duplicados", async () => {
   const rewrites = await nextConfig.rewrites?.();
-  assert.deepEqual(rewrites, [
-    { source: "/api/economik/:path*", destination: "/api/hub/:path*" },
-  ]);
-  assert.equal(existsSync(resolve(process.cwd(), "src/app/economik")), false);
-  assert.equal(existsSync(resolve(process.cwd(), "src/app/api/economik")), false);
+  assert.equal(rewrites, undefined);
+  assert.equal(existsSync(resolve(process.cwd(), "src/app/api/hub")), true);
 });
 
 test("superfícies principais usam HUB_BRAND e não reintroduzem marca legada", () => {
